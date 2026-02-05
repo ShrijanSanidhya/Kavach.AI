@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const authRoutes = require('./routes/authRoutes');
+const { clerkMiddleware, requireAuth } = require('@clerk/express');
 
 dotenv.config();
 
@@ -16,8 +16,18 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 
+// Clerk Middleware - sets auth on request
+app.use(clerkMiddleware());
+
 // Routes
-app.use('/api/auth', authRoutes);
+// Protected route example
+app.get('/api/auth/profile', requireAuth(), (req, res) => {
+    res.json({
+        message: 'Authenticated successfully',
+        auth: req.auth,
+    });
+});
+
 
 app.get('/', (req, res) => {
     res.send('API is running...');
