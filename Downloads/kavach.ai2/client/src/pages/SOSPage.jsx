@@ -92,12 +92,16 @@ export default function SOSPage() {
       <div style={{ position:'fixed', top:'-10%', left:'-5%', width:'45%', height:'55%', borderRadius:'50%', background:'radial-gradient(circle,rgba(0,120,255,0.13),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
       <div style={{ position:'fixed', top:'8%', right:'-8%', width:'40%', height:'50%', borderRadius:'50%', background:'radial-gradient(circle,rgba(130,0,255,0.1),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
       <div style={{ position:'fixed', bottom:'5%', left:'8%', width:'35%', height:'40%', borderRadius:'50%', background:'radial-gradient(circle,rgba(255,50,100,0.07),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
-      <div style={{ position:'fixed', bottom:'20%', right:'5%', width:'30%', height:'35%', borderRadius:'50%', background:'radial-gradient(circle,rgba(220,30,30,0.09),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
+      <div style={{ position:'fixed', top:'-10%', left:'-5%', width:'45%', height:'55%', borderRadius:'50%', background:'radial-gradient(circle,rgba(255,50,50,0.15),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
+      <div style={{ position:'fixed', top:'8%', right:'-8%', width:'40%', height:'50%', borderRadius:'50%', background:'radial-gradient(circle,rgba(255,30,80,0.15),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
+      <div style={{ position:'fixed', bottom:'5%', left:'8%', width:'35%', height:'40%', borderRadius:'50%', background:'radial-gradient(circle,rgba(255,50,100,0.15),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
+      <div style={{ position:'fixed', bottom:'20%', right:'5%', width:'38%', height:'45%', borderRadius:'50%', background:'radial-gradient(circle,rgba(220,30,30,0.25),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
+      <div style={{ position:'fixed', top:'40%', right:'20%', width:'20%', height:'25%', borderRadius:'50%', background:'radial-gradient(circle,rgba(200,0,0,0.15),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
 
       <input ref={fileRef} type="file" accept="image/*,video/*" style={{ display:'none' }} onChange={onFile} />
 
       {/* ── NAV ── */}
-      <nav style={{ position:'relative', zIndex:10, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 32px', borderBottom:`1px solid ${C.border}`, backdropFilter:'blur(12px)', background:'rgba(3,10,20,0.7)' }}>
+      <nav style={{ position:'relative', zIndex:10, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 32px', borderBottom:`1px solid rgba(200,30,30,0.2)`, backdropFilter:'blur(12px)', background:'rgba(3,10,20,0.7)', boxShadow:'0 1px 0 rgba(220,30,30,0.08)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <svg width={26} height={26} viewBox="0 0 24 24">
             <defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={C.cyan}/><stop offset="100%" stopColor={C.red}/></linearGradient></defs>
@@ -107,8 +111,8 @@ export default function SOSPage() {
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:20 }}>
           {step !== STEP.IDLE && <button onClick={reset} style={{ background:'none', border:`1px solid ${C.border}`, color:C.muted, padding:'5px 14px', borderRadius:6, cursor:'pointer', fontSize:12 }}>Reset</button>}
-          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:C.cyan, letterSpacing:'0.1em' }}>
-            <span style={{ width:6, height:6, borderRadius:'50%', background:C.cyan, display:'inline-block', animation:'pulse 1.4s ease-in-out infinite', boxShadow:`0 0 6px ${C.cyan}` }} />
+          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:C.red, letterSpacing:'0.1em' }}>
+            <span style={{ width:6, height:6, borderRadius:'50%', background:C.red, display:'inline-block', animation:'pulse 1.4s ease-in-out infinite', boxShadow:`0 0 8px ${C.red}` }} />
             LIVE SYSTEM
           </div>
           <Link to="/command" style={{ color:C.muted, fontSize:13, textDecoration:'none', fontWeight:500, padding:'6px 14px', border:`1px solid ${C.border}`, borderRadius:6, transition:'all 0.2s' }}
@@ -133,7 +137,7 @@ export default function SOSPage() {
                 <h1 style={{ fontSize:56, fontWeight:900, lineHeight:1.05, marginBottom:14, background:`linear-gradient(135deg,${C.text} 0%,${C.cyan} 28%,#a78bfa 55%,#ff2d2d 80%,#ff6060 100%)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
                   Need Help?
                 </h1>
-                <p style={{ color:C.muted, fontSize:15, lineHeight:1.65 }}>Speak or type your emergency.<br/>AI triage dispatches help in seconds.</p>
+                <p style={{ color:'#a06070', fontSize:15, lineHeight:1.65 }}>Speak or type your emergency.<br/>AI triage dispatches help in seconds.</p>
               </div>
 
               {/* MIC */}
@@ -149,23 +153,23 @@ export default function SOSPage() {
                       background: listening
                         ? 'radial-gradient(circle at 35% 35%,rgba(0,200,255,0.35),rgba(100,0,200,0.25),rgba(0,30,80,0.95))'
                         : 'radial-gradient(circle at 35% 35%,#162840,#0a1628)',
-                      border: `2px solid ${listening ? 'rgba(0,200,255,0.8)' : 'rgba(120,80,255,0.3)'}`,
+                      border: `2px solid ${listening ? 'rgba(255,50,50,0.9)' : 'rgba(180,30,60,0.35)'}`,
                       boxShadow: listening
-                        ? '0 0 30px rgba(0,200,255,0.4),0 0 60px rgba(140,0,255,0.2)'
-                        : '0 0 20px rgba(60,0,120,0.35),0 0 40px rgba(0,80,200,0.1)',
+                        ? '0 0 30px rgba(255,50,50,0.5),0 0 60px rgba(140,0,80,0.3)'
+                        : '0 0 20px rgba(120,0,40,0.4),0 0 40px rgba(60,0,80,0.15)',
                       cursor:'pointer', transition:'all 0.25s', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6 }}>
-                    <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={listening ? C.cyan : '#7a6aff'} strokeWidth={1.8}>
+                    <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={listening ? '#ff4444' : '#cc2244'} strokeWidth={1.8}>
                       <rect x={9} y={2} width={6} height={13} rx={3}/><path d="M5 10a7 7 0 0 0 14 0"/><line x1={12} y1={19} x2={12} y2={22}/><line x1={8} y1={22} x2={16} y2={22}/>
                     </svg>
-                    <span style={{ fontSize:9, letterSpacing:'0.14em', fontWeight:700, color: listening ? C.cyan : '#7a6aff' }}>{listening ? 'RELEASE' : 'HOLD'}</span>
+                    <span style={{ fontSize:9, letterSpacing:'0.14em', fontWeight:700, color: listening ? '#ff4444' : '#cc2244' }}>{listening ? 'RELEASE' : 'HOLD'}</span>
                   </button>
                 </div>
               </div>
 
               {/* INPUT CARD */}
-              <div style={{ background:'linear-gradient(135deg,rgba(10,22,40,0.92),rgba(22,10,50,0.88))', border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', backdropFilter:'blur(12px)', boxShadow:'0 20px 60px rgba(0,0,0,0.5),inset 0 1px 0 rgba(0,200,255,0.08),0 0 0 1px rgba(220,30,30,0.06)' }}>
+              <div style={{ background:'linear-gradient(135deg,rgba(10,22,40,0.92),rgba(30,8,14,0.92))', border:'1px solid rgba(200,30,30,0.2)', borderRadius:14, overflow:'hidden', backdropFilter:'blur(12px)', boxShadow:'0 20px 60px rgba(0,0,0,0.5),inset 0 1px 0 rgba(220,30,30,0.1),0 0 0 1px rgba(220,30,30,0.06)' }}>
                 <div style={{ padding:'18px 20px 10px' }}>
-                  <label style={{ display:'block', fontSize:10, color:C.cyan, letterSpacing:'0.14em', marginBottom:10, fontWeight:700 }}>DESCRIBE YOUR EMERGENCY</label>
+                  <label style={{ display:'block', fontSize:10, color:'#ff4444', letterSpacing:'0.14em', marginBottom:10, fontWeight:700 }}>DESCRIBE YOUR EMERGENCY</label>
                   <textarea value={text} onChange={e=>setText(e.target.value)}
                     onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submit(text); } }}
                     placeholder="e.g. Aag lag gayi, Karol Bagh, 5 log faṃse hain…" rows={3}
@@ -198,7 +202,7 @@ export default function SOSPage() {
                   </button>
                 </div>
               </div>
-              <p style={{ textAlign:'center', fontSize:11, color:C.muted, marginTop:14 }}>📍 Location active &nbsp;·&nbsp; 🔒 Encrypted &nbsp;·&nbsp; 🤖 AI Vision ready</p>
+              <p style={{ textAlign:'center', fontSize:11, color:'#7a4050', marginTop:14 }}>📍 Location active &nbsp;·&nbsp; 🔒 Encrypted &nbsp;·&nbsp; 🤖 AI Vision ready</p>
             </>
           )}
 
