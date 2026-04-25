@@ -96,11 +96,7 @@ export default function SOSPage() {
   return (
     <div style={{ minHeight:'100vh', background:C.bg, display:'flex', flexDirection:'column', color:C.text, position:'relative', overflow:'hidden' }}>
 
-      {/* ── Ambient colour blobs ── */}
-      <div style={{ position:'fixed', top:'-15%', left:'-10%', width:'50%', height:'60%', borderRadius:'50%', background:'radial-gradient(circle,rgba(30,50,120,0.18),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
-      <div style={{ position:'fixed', top:'10%', right:'-5%', width:'35%', height:'45%', borderRadius:'50%', background:'radial-gradient(circle,rgba(180,20,20,0.14),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
-      <div style={{ position:'fixed', bottom:'0%', left:'5%', width:'40%', height:'45%', borderRadius:'50%', background:'radial-gradient(circle,rgba(150,15,15,0.12),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
-      <div style={{ position:'fixed', bottom:'25%', right:'10%', width:'28%', height:'32%', borderRadius:'50%', background:'radial-gradient(circle,rgba(160,100,0,0.08),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
+      {/* Ambient colour blobs - REMOVED for professional look */}
 
       <input ref={fileRef} type="file" accept="image/*,video/*" style={{ display:'none' }} onChange={onFile} />
 
@@ -138,8 +134,8 @@ export default function SOSPage() {
                 <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.22em', marginBottom:16, color:C.amber }}>
                   KAVACH EMERGENCY DISPATCH SYSTEM
                 </div>
-                <h1 style={{ fontSize:54, fontWeight:900, lineHeight:1.05, marginBottom:14, background:`linear-gradient(135deg,${C.text} 0%,#e8c0a0 40%,${C.red} 75%,#8b0f0f 100%)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-                  Need Help?
+                <h1 style={{ fontSize:54, fontWeight:900, lineHeight:1.05, marginBottom:14, color: C.text }}>
+                  Need Help<span style={{ color: C.red }}>?</span>
                 </h1>
                 <p style={{ color:C.muted, fontSize:15, lineHeight:1.65 }}>Speak your emergency. Our AI triage agent<br/>dispatches help and stays with you.</p>
               </div>
@@ -198,7 +194,7 @@ export default function SOSPage() {
                     style={{ background:'none', border:`1px solid ${C.border}`, color:C.muted, borderRadius:8, padding:'8px 14px', fontSize:12, cursor:'pointer', transition:'all 0.2s' }}
                     onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.amber; e.currentTarget.style.color=C.amber; }}
                     onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.muted; }}>
-                    {media ? '🖼 Change' : '📎 Attach Photo/Video'}
+                    {media ? 'Change' : 'Attach Photo/Video'}
                   </button>
                   <button onClick={()=>submit(text)} disabled={!hasInput}
                     style={{ background: hasInput ? `linear-gradient(135deg,${C.red},${C.red2})` : `rgba(100,10,10,0.15)`, color: hasInput ? '#fff' : C.dim, border:'none', borderRadius:8, padding:'10px 28px', fontWeight:800, fontSize:13, letterSpacing:'0.1em', cursor: hasInput ? 'pointer' : 'not-allowed', boxShadow: hasInput ? `0 4px 22px rgba(196,24,24,0.45)` : 'none', transition:'all 0.2s' }}>
@@ -206,7 +202,7 @@ export default function SOSPage() {
                   </button>
                 </div>
               </div>
-              <p style={{ textAlign:'center', fontSize:11, color:C.dim, marginTop:14, letterSpacing:'0.04em' }}>📍 Location active &nbsp;·&nbsp; 🔒 Encrypted &nbsp;·&nbsp; 🤖 AI Vision ready</p>
+              <p style={{ textAlign:'center', fontSize:11, color:C.dim, marginTop:14, letterSpacing:'0.04em' }}>Location active &nbsp;·&nbsp; Encrypted &nbsp;·&nbsp; AI Vision ready</p>
             </>
           )}
 
@@ -219,7 +215,7 @@ export default function SOSPage() {
                 <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:10, height:10, borderRadius:'50%', background:C.red, boxShadow:`0 0 10px ${C.red}` }} />
               </div>
               <h2 style={{ fontSize:20, fontWeight:700, marginBottom:8, color:C.text }}>AI Analyzing…</h2>
-              {media && <p style={{ color:C.amber, fontSize:13, marginBottom:6 }}>👁 {media.type==='image' ? 'Vision model processing image' : 'Analyzing video context'}</p>}
+              {media && <p style={{ color:C.amber, fontSize:13, marginBottom:6 }}>{media.type==='image' ? 'Vision model processing image' : 'Analyzing video context'}</p>}
               <p style={{ color:C.muted, fontSize:13 }}>{elapsed}s elapsed</p>
             </div>
           )}
@@ -301,7 +297,7 @@ function TriageCard({ triage, bar, barCol, vision }) {
       </div>
       {vision && (
         <div style={{ marginTop:14, borderTop:'1px solid rgba(167,139,250,0.15)', paddingTop:14 }}>
-          <div style={{ fontSize:9, color:'#a78bfa', letterSpacing:'0.12em', fontWeight:700, marginBottom:6 }}>👁 AI VISION ANALYSIS</div>
+          <div style={{ fontSize:9, color:'#a78bfa', letterSpacing:'0.12em', fontWeight:700, marginBottom:6 }}>AI VISION ANALYSIS</div>
           <p style={{ fontSize:12, color:'#b0c8e0', lineHeight:1.65, margin:0 }}>{vision}</p>
         </div>
       )}

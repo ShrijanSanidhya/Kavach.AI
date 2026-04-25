@@ -148,7 +148,7 @@ export default function TrackPage() {
             <div style={{ fontSize:18, fontWeight:800, marginBottom:6, color:C.text }}>
               {incident?.emergencyType?.toUpperCase() || 'ANALYZING…'}
             </div>
-            <div style={{ fontSize:13, color:C.muted, marginBottom:14 }}>📍 {incident?.locationName || 'Locating…'}</div>
+            <div style={{ fontSize:13, color:C.muted, marginBottom:14 }}>{incident?.locationName || 'Locating…'}</div>
 
             {/* Progress steps */}
             {[
@@ -224,7 +224,7 @@ export default function TrackPage() {
                 <CircleMarker center={incident.location} radius={28} pathOptions={{ color:sevCol, fillColor:'transparent', weight:1, opacity:0.3 }} />
               </MapContainer>
             ) : (
-              <div style={{ height:220, background:C.bg2, display:'flex', alignItems:'center', justifyContent:'center', color:C.dim, fontSize:13 }}>📡 Acquiring GPS coordinates…</div>
+              <div style={{ height:220, background:C.bg2, display:'flex', alignItems:'center', justifyContent:'center', color:C.dim, fontSize:13 }}>Acquiring GPS coordinates…</div>
             )}
           </div>
 

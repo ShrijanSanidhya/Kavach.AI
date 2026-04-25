@@ -76,7 +76,7 @@ export default function CommandCenter() {
           <span style={{color:C.muted,fontSize:12,fontFamily:'JetBrains Mono,monospace'}}>{clock}</span>
           <div style={{width:1,height:26,background:C.border,margin:'0 4px'}}/>
           <button onClick={triggerChaos} style={{background:chaos?`linear-gradient(135deg,${C.red},${C.red2})`:`linear-gradient(135deg,rgba(180,30,30,0.15),rgba(100,10,10,0.2))`,color:C.red,border:`1px solid ${C.red}`,padding:'5px 12px',borderRadius:6,fontWeight:700,fontSize:11,cursor:'pointer',letterSpacing:'0.06em',boxShadow:`0 0 14px rgba(196,24,24,0.25)`,transition:'all 0.15s'}}>
-            ⚡ CHAOS MODE
+            CHAOS MODE
           </button>
           <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:connected?C.greenBright:C.muted}}>
             <span style={{width:7,height:7,borderRadius:'50%',background:connected?C.greenBright:C.muted,display:'inline-block',boxShadow:connected?`0 0 6px ${C.greenBright}`:'none'}}/>
@@ -123,7 +123,7 @@ export default function CommandCenter() {
         <div style={{display:'flex',flexDirection:'column',gap:10,overflow:'hidden',minHeight:0}}>
           {/* AI Insights */}
           <div style={{...panel,padding:'14px 16px',flexShrink:0}}>
-            <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.14em',color:C.amber,marginBottom:14}}>🤖 AI INSIGHTS</div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:'0.14em',color:C.amber,marginBottom:14}}>AI INSIGHTS</div>
             <Insight color={C.red}    icon="⚠" title="INCIDENT SPIKE"     body={`${state.stats.totalCalls} calls — AI processed all`}/>
             <Insight color={C.orange} icon="🔁" title="DUPLICATES MERGED"  body={`${state.stats.duplicatesMerged} redundant calls filtered`}/>
             <Insight color={C.gold}   icon="⚡" title="AI vs MANUAL"       body={`AI: ${state.stats.aiResponseTime} · Manual: ${state.stats.manualResponseTime}`}/>
@@ -148,7 +148,7 @@ export default function CommandCenter() {
 
       {/* BOTTOM BAR */}
       <div style={{height:34,backgroundColor:'rgba(10,22,40,0.9)',borderTop:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-around',fontSize:11,color:C.muted,flexShrink:0,backdropFilter:'blur(8px)'}}>
-        {[['📞 Total Calls',state.stats.totalCalls],['🔁 Duplicates',state.stats.duplicatesMerged],['🚨 Active',state.stats.active],['✅ Resolved',state.stats.resolved],['⚡ AI',state.stats.aiResponseTime],['🐌 Manual',state.stats.manualResponseTime]].map(([l,v])=>(
+        {[['Total Calls',state.stats.totalCalls],['Duplicates',state.stats.duplicatesMerged],['Active',state.stats.active],['Resolved',state.stats.resolved],['AI',state.stats.aiResponseTime],['Manual',state.stats.manualResponseTime]].map(([l,v])=>(
           <span key={l}>{l}: <strong style={{color:C.text}}>{v}</strong></span>
         ))}
       </div>
