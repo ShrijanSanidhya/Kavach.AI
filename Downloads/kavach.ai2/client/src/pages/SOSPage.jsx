@@ -4,11 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 const API = 'http://localhost:3001';
 const STEP = { IDLE:0, LISTENING:1, ANALYZING:2, FOLLOWUP:3, DONE:4 };
 const C = {
-  bg:'#080c14', bg1:'#0e1522', bg2:'#131d30', bg3:'#1a253c',
-  border:'rgba(180,30,30,0.2)', red:'#c41818', red2:'#8b0f0f',
-  amber:'#c4882a', amberDim:'#7a5010',
-  orange:'#c45010', gold:'#b87c18', green:'#2a7a40',
-  text:'#e8e0d0', muted:'#7a6860', dim:'#4a3830',
+  bg:'#020813', bg1:'#061022', bg2:'#0a162e', bg3:'#0f2040',
+  border:'rgba(200,20,20,0.3)', red:'#cc0000', red2:'#8b0000',
+  text:'#e2e8f0', muted:'#64748b', dim:'#475569',
 };
 const speak = (t) => { if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t); u.lang='hi-IN'; u.rate=0.92; window.speechSynthesis.speak(u); };
 const toB64 = (f) => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
@@ -90,7 +88,7 @@ export default function SOSPage() {
 
   const reset = () => { setStep(STEP.IDLE); setText(''); setTriage(null); setDispatch(null); setBar(0); setFollowup(''); removeMedia(); window.speechSynthesis?.cancel(); };
 
-  const barCol   = bar>80 ? C.green : bar>55 ? C.gold : C.red;
+  const barCol   = bar>80 ? C.red : bar>55 ? C.red2 : 'C.red2';
   const hasInput = text.trim() || media;
 
   return (
@@ -111,12 +109,12 @@ export default function SOSPage() {
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:20 }}>
           {step !== STEP.IDLE && <button onClick={reset} style={{ background:'none', border:`1px solid ${C.border}`, color:C.muted, padding:'5px 14px', borderRadius:6, cursor:'pointer', fontSize:12 }}>Reset</button>}
-          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:C.amber, letterSpacing:'0.12em', fontWeight:600 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:C.red, letterSpacing:'0.12em', fontWeight:600 }}>
             <span style={{ width:6, height:6, borderRadius:'50%', background:C.red, display:'inline-block', animation:'pulse 1.4s ease-in-out infinite', boxShadow:`0 0 8px ${C.red}` }} />
             LIVE SYSTEM
           </div>
           <Link to="/command" style={{ color:C.muted, fontSize:13, textDecoration:'none', fontWeight:500, padding:'6px 14px', border:`1px solid ${C.border}`, borderRadius:6, transition:'all 0.2s' }}
-            onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.amber; e.currentTarget.style.color=C.amber; }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.red; e.currentTarget.style.color=C.red; }}
             onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.muted; }}>
             Command Center →
           </Link>
@@ -131,7 +129,7 @@ export default function SOSPage() {
           {(step===STEP.IDLE || step===STEP.LISTENING) && (
             <>
               <div style={{ textAlign:'center', marginBottom:40 }}>
-                <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.22em', marginBottom:16, color:C.amber }}>
+                <div style={{ fontSize:10, fontWeight:700, letterSpacing:'0.22em', marginBottom:16, color:C.red }}>
                   KAVACH EMERGENCY DISPATCH SYSTEM
                 </div>
                 <h1 style={{ fontSize:54, fontWeight:900, lineHeight:1.05, marginBottom:14, color: C.text }}>
@@ -169,7 +167,7 @@ export default function SOSPage() {
               {/* INPUT CARD */}
               <div style={{ background:'linear-gradient(160deg,rgba(14,21,34,0.97),rgba(26,12,12,0.95))', border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden', backdropFilter:'blur(14px)', boxShadow:`0 20px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(196,24,24,0.12)` }}>
                 <div style={{ padding:'18px 20px 10px' }}>
-                  <label style={{ display:'block', fontSize:10, color:C.amber, letterSpacing:'0.16em', marginBottom:10, fontWeight:700 }}>DESCRIBE YOUR EMERGENCY</label>
+                  <label style={{ display:'block', fontSize:10, color:C.red, letterSpacing:'0.16em', marginBottom:10, fontWeight:700 }}>DESCRIBE YOUR EMERGENCY</label>
                   <textarea value={text} onChange={e=>setText(e.target.value)}
                     onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submit(text); } }}
                     placeholder="e.g. Aag lag gayi, Karol Bagh, 5 log faṃse hain…" rows={3}
@@ -192,7 +190,7 @@ export default function SOSPage() {
                 <div style={{ borderTop:`1px solid ${C.border}`, padding:'12px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:10 }}>
                   <button onClick={()=>fileRef.current?.click()}
                     style={{ background:'none', border:`1px solid ${C.border}`, color:C.muted, borderRadius:8, padding:'8px 14px', fontSize:12, cursor:'pointer', transition:'all 0.2s' }}
-                    onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.amber; e.currentTarget.style.color=C.amber; }}
+                    onMouseEnter={e=>{ e.currentTarget.style.borderColor=C.red; e.currentTarget.style.color=C.red; }}
                     onMouseLeave={e=>{ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.muted; }}>
                     {media ? 'Change' : 'Attach Photo/Video'}
                   </button>
@@ -210,12 +208,12 @@ export default function SOSPage() {
           {step===STEP.ANALYZING && (
             <div style={{ textAlign:'center', animation:'fadeIn 0.3s ease' }}>
               <div style={{ position:'relative', width:72, height:72, margin:'0 auto 24px' }}>
-                <div style={{ position:'absolute', inset:0, borderRadius:'50%', border:`3px solid transparent`, borderTopColor:C.red, borderRightColor:C.amber, animation:'spin 0.9s linear infinite' }} />
+                <div style={{ position:'absolute', inset:0, borderRadius:'50%', border:`3px solid transparent`, borderTopColor:C.red, borderRightColor:C.red, animation:'spin 0.9s linear infinite' }} />
                 <div style={{ position:'absolute', inset:8, borderRadius:'50%', border:'2px solid transparent', borderBottomColor:'rgba(180,30,30,0.3)', borderLeftColor:'rgba(196,136,42,0.2)', animation:'spin 1.4s linear reverse infinite' }} />
                 <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:10, height:10, borderRadius:'50%', background:C.red, boxShadow:`0 0 10px ${C.red}` }} />
               </div>
               <h2 style={{ fontSize:20, fontWeight:700, marginBottom:8, color:C.text }}>AI Analyzing…</h2>
-              {media && <p style={{ color:C.amber, fontSize:13, marginBottom:6 }}>{media.type==='image' ? 'Vision model processing image' : 'Analyzing video context'}</p>}
+              {media && <p style={{ color:C.red, fontSize:13, marginBottom:6 }}>{media.type==='image' ? 'Vision model processing image' : 'Analyzing video context'}</p>}
               <p style={{ color:C.muted, fontSize:13 }}>{elapsed}s elapsed</p>
             </div>
           )}
@@ -229,7 +227,7 @@ export default function SOSPage() {
                   <svg width={16} height={16} viewBox="0 0 24 24" fill={C.red}><path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z"/></svg>
                 </div>
                 <div>
-                  <p style={{ fontSize:10, color:C.amber, marginBottom:4, letterSpacing:'0.12em', fontWeight:700 }}>KAVACH AI</p>
+                  <p style={{ fontSize:10, color:C.red, marginBottom:4, letterSpacing:'0.12em', fontWeight:700 }}>KAVACH AI</p>
                   <p style={{ fontSize:15, lineHeight:1.55 }}>{triage?.followUpQuestion}</p>
                 </div>
               </div>
@@ -251,7 +249,7 @@ export default function SOSPage() {
             <TriageCard triage={triage} bar={bar} barCol={barCol} vision={vision} />
             <div style={{ background:'linear-gradient(135deg,rgba(0,30,15,0.8),rgba(0,50,25,0.6))', border:'1px solid rgba(0,255,136,0.3)', borderRadius:14, padding:28, marginTop:14, textAlign:'center', boxShadow:'0 0 40px rgba(0,255,136,0.1)' }}>
               <div style={{ fontSize:44, marginBottom:10 }}>✅</div>
-              <h2 style={{ fontSize:24, fontWeight:800, color:C.green, marginBottom:8 }}>HELP IS ON THE WAY</h2>
+              <h2 style={{ fontSize:24, fontWeight:800, color:C.red, marginBottom:8 }}>HELP IS ON THE WAY</h2>
               {dispatch?.incident?.assignedResource && <p style={{ fontSize:15, marginBottom:6 }}><strong style={{ color:C.cyan }}>{dispatch.incident.assignedResource}</strong> dispatched{dispatch.incident.etaMinutes ? ` · ETA ${dispatch.incident.etaMinutes} min` : ''}</p>}
               {dispatch?.status==='merged' && <p style={{ fontSize:12, color:C.muted, marginBottom:6 }}>Merged with an existing active incident</p>}
               <p style={{ color:C.muted, fontSize:13, lineHeight:1.65 }}>Stay on the line · KAVACH is with you<br/>Aap safe jagah pe rahein</p>

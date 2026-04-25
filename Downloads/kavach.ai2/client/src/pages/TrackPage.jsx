@@ -6,29 +6,28 @@ import 'leaflet/dist/leaflet.css';
 const API = 'http://localhost:3001';
 
 const C = {
-  bg:'#080c14', bg1:'#0e1522', bg2:'#131d30', bg3:'#1a253c',
-  border:'rgba(180,30,30,0.2)', red:'#c41818', red2:'#8b0f0f',
-  amber:'#c4882a', text:'#e8e0d0', muted:'#7a6860', dim:'#4a3830',
-  green:'#2a7a40', greenBright:'#3ab054',
+  bg:'#020813', bg1:'#061022', bg2:'#0a162e', bg3:'#0f2040',
+  border:'rgba(200,20,20,0.3)', red:'#cc0000', red2:'#8b0000',
+  text:'#e2e8f0', muted:'#64748b', dim:'#475569',
 };
 
 const FIRE_DECISIONS = [
   { id:'d1', label:'Dispatch Fire Brigade', icon:'🚒', detail:'Nearest unit: FIRE-1 · ETA ~4 min', color:C.red },
-  { id:'d2', label:'Alert Medical Standby', icon:'🚑', detail:'Ambulance on standby at incident perimeter', color:'#b86010' },
-  { id:'d3', label:'Evacuate 300m Radius', icon:'⚠', detail:'Automated PA system alert triggered', color:C.amber },
-  { id:'d4', label:'Notify Gas Authority', icon:'🏭', detail:'Industrial zone detected — GAIL alerted', color:'#6a4a20' },
+  { id:'d2', label:'Alert Medical Standby', icon:'🚑', detail:'Ambulance on standby at incident perimeter', color:'C.red2' },
+  { id:'d3', label:'Evacuate 300m Radius', icon:'⚠', detail:'Automated PA system alert triggered', color:C.red },
+  { id:'d4', label:'Notify Gas Authority', icon:'🏭', detail:'Industrial zone detected — GAIL alerted', color:'C.red2' },
 ];
 
 const MEDICAL_DECISIONS = [
   { id:'m1', label:'Dispatch Ambulance', icon:'🚑', detail:'Nearest AMB-2 · ETA ~3 min', color:C.red },
-  { id:'m2', label:'Alert ER at AIIMS', icon:'🏥', detail:'Trauma bay reserved — code red', color:'#b86010' },
-  { id:'m3', label:'CPR Guidance Active', icon:'💊', detail:'AI voice guide active for caller', color:C.amber },
+  { id:'m2', label:'Alert ER at AIIMS', icon:'🏥', detail:'Trauma bay reserved — code red', color:'C.red2' },
+  { id:'m3', label:'CPR Guidance Active', icon:'💊', detail:'AI voice guide active for caller', color:C.red },
 ];
 
 const POLICE_DECISIONS = [
   { id:'p1', label:'Dispatch Police Unit', icon:'🚓', detail:'POL-2 & POL-3 en route · ETA ~5 min', color:C.red },
-  { id:'p2', label:'Roadblock Activated', icon:'🚧', detail:'Nearest junction sealed off', color:'#b86010' },
-  { id:'p3', label:'Notify Control Room', icon:'📡', detail:'District HQ alerted via ERSS', color:C.amber },
+  { id:'p2', label:'Roadblock Activated', icon:'🚧', detail:'Nearest junction sealed off', color:'C.red2' },
+  { id:'p3', label:'Notify Control Room', icon:'📡', detail:'District HQ alerted via ERSS', color:C.red },
 ];
 
 const getDecisions = (type) => {
@@ -38,7 +37,7 @@ const getDecisions = (type) => {
   return POLICE_DECISIONS;
 };
 
-const sevColor = (s) => s === 'HIGH' ? C.red : s === 'MEDIUM' ? '#c45010' : C.amber;
+const sevColor = (s) => s === 'HIGH' ? C.red : s === 'MEDIUM' ? C.red2 : 'C.red2';
 
 export default function TrackPage() {
   const { incidentId } = useParams();
@@ -115,13 +114,13 @@ export default function TrackPage() {
       <nav style={{ position:'relative', zIndex:10, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 28px', borderBottom:`1px solid ${C.border}`, background:'rgba(8,12,20,0.88)', backdropFilter:'blur(12px)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           <Link to="/" style={{ display:'flex', alignItems:'center', gap:8, textDecoration:'none' }}>
-            <svg width={22} height={22} viewBox="0 0 24 24"><defs><linearGradient id="ng" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={C.amber}/><stop offset="100%" stopColor={C.red}/></linearGradient></defs><path fill="url(#ng)" d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z"/></svg>
+            <svg width={22} height={22} viewBox="0 0 24 24"><defs><linearGradient id="ng" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor={C.red}/><stop offset="100%" stopColor={C.red}/></linearGradient></defs><path fill="url(#ng)" d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z"/></svg>
             <span style={{ fontWeight:800, fontSize:14, letterSpacing:'0.1em', color:C.text }}>KAVACH<span style={{ color:C.red }}>.AI</span></span>
           </Link>
           <span style={{ color:C.muted, fontSize:12 }}>/ INCIDENT TRACKER</span>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-          <span style={{ fontSize:11, color:C.amber, fontWeight:700, letterSpacing:'0.12em' }}>⬤ LIVE TRACKING</span>
+          <span style={{ fontSize:11, color:C.red, fontWeight:700, letterSpacing:'0.12em' }}>⬤ LIVE TRACKING</span>
           <Link to="/command" style={{ fontSize:12, color:C.muted, textDecoration:'none', border:`1px solid ${C.border}`, padding:'5px 12px', borderRadius:6 }}>Command Center →</Link>
         </div>
       </nav>
@@ -136,7 +135,7 @@ export default function TrackPage() {
           <div style={{ background:'linear-gradient(160deg,rgba(14,21,34,0.97),rgba(26,12,12,0.95))', border:`1px solid ${C.border}`, borderRadius:12, padding:'18px 20px', boxShadow:`0 0 40px rgba(196,24,24,0.08)` }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
               <div>
-                <div style={{ fontSize:9, color:C.amber, letterSpacing:'0.16em', fontWeight:700, marginBottom:4 }}>ALERT ID</div>
+                <div style={{ fontSize:9, color:C.red, letterSpacing:'0.16em', fontWeight:700, marginBottom:4 }}>ALERT ID</div>
                 <div style={{ fontSize:13, fontFamily:'monospace', color:C.text }}>{incident?.id || incidentId || '—'}</div>
               </div>
               {incident?.severity && (
@@ -157,7 +156,7 @@ export default function TrackPage() {
               { label:'Help Dispatched', done:phase === 'dispatched', active:false },
             ].map((s, i) => (
               <div key={i} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-                <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0, border:`2px solid ${s.done ? C.greenBright : s.active ? C.red : C.dim}`, background: s.done ? C.greenBright : s.active ? `${C.red}33` : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, transition:'all 0.4s' }}>
+                <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0, border:`2px solid ${s.done ? C.red : s.active ? C.red : C.dim}`, background: s.done ? C.red : s.active ? `${C.red}33` : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, transition:'all 0.4s' }}>
                   {s.done ? '✓' : s.active ? <span style={{ width:6, height:6, borderRadius:'50%', background:C.red, display:'block', animation:'pulse 1s infinite' }} /> : ''}
                 </div>
                 <span style={{ fontSize:13, color: s.done ? C.text : s.active ? C.red : C.dim, fontWeight: s.active ? 700 : 400 }}>{s.label}</span>
@@ -168,13 +167,13 @@ export default function TrackPage() {
 
           {/* AI Confidence */}
           <div style={{ background:'linear-gradient(160deg,rgba(14,21,34,0.97),rgba(26,12,12,0.95))', border:`1px solid ${C.border}`, borderRadius:12, padding:'16px 20px' }}>
-            <div style={{ fontSize:9, color:C.amber, letterSpacing:'0.16em', fontWeight:700, marginBottom:12 }}>AI TRIAGE CONFIDENCE</div>
+            <div style={{ fontSize:9, color:C.red, letterSpacing:'0.16em', fontWeight:700, marginBottom:12 }}>AI TRIAGE CONFIDENCE</div>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
               <span style={{ fontSize:13, color:C.muted }}>Accuracy Score</span>
-              <span style={{ fontSize:22, fontWeight:800, color: acc > 80 ? C.greenBright : acc > 55 ? C.amber : C.red }}>{acc}%</span>
+              <span style={{ fontSize:22, fontWeight:800, color: acc > 80 ? C.red : acc > 55 ? C.red2 : 'C.red2' }}>{acc}%</span>
             </div>
             <div style={{ height:6, background:'rgba(180,30,30,0.1)', borderRadius:3, overflow:'hidden', marginBottom:14 }}>
-              <div style={{ height:'100%', width:`${acc}%`, background:`linear-gradient(90deg,${C.red},${acc > 80 ? C.greenBright : C.amber})`, borderRadius:3, transition:'width 1s ease', boxShadow:`0 0 8px rgba(196,24,24,0.4)` }} />
+              <div style={{ height:'100%', width:`${acc}%`, background:`linear-gradient(90deg,${C.red2},${acc > 80 ? C.red : 'C.red2'})`, borderRadius:3, transition:'width 1s ease', boxShadow:`0 0 8px rgba(196,24,24,0.4)` }} />
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 16px' }}>
               {[['Type', incident?.emergencyType], ['Resource', incident?.resourceNeeded], ['ETA', eta ? `${eta} min` : '—'], ['Calls', incident?.callCount || 1]].map(([k,v]) => (
@@ -187,7 +186,7 @@ export default function TrackPage() {
           <div style={{ background:'linear-gradient(160deg,rgba(26,12,12,0.9),rgba(14,21,34,0.95))', border:`1px solid ${C.border}`, borderRadius:12, padding:'14px 18px', display:'flex', alignItems:'center', gap:12 }}>
             <div style={{ width:8, height:8, borderRadius:'50%', background:C.red, boxShadow:`0 0 8px ${C.red}`, animation:'pulse 1.2s infinite', flexShrink:0 }} />
             <div>
-              <div style={{ fontSize:9, color:C.amber, letterSpacing:'0.12em', fontWeight:700, marginBottom:3 }}>LIVE AI ANALYSIS</div>
+              <div style={{ fontSize:9, color:C.red, letterSpacing:'0.12em', fontWeight:700, marginBottom:3 }}>LIVE AI ANALYSIS</div>
               <div style={{ fontSize:12, color:C.text, fontFamily:'monospace' }}>{aiMsg || 'Awaiting incident data…'}</div>
             </div>
           </div>
@@ -200,7 +199,7 @@ export default function TrackPage() {
           <div style={{ background:'linear-gradient(160deg,rgba(14,21,34,0.97),rgba(26,12,12,0.95))', border:`1px solid ${C.border}`, borderRadius:12, padding:'16px 20px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
               <div style={{ width:8, height:8, borderRadius:'50%', background:C.red, animation:'pulse 1.2s infinite', boxShadow:`0 0 6px ${C.red}` }} />
-              <span style={{ fontSize:9, color:C.amber, letterSpacing:'0.16em', fontWeight:700 }}>AI DECISION ENGINE</span>
+              <span style={{ fontSize:9, color:C.red, letterSpacing:'0.16em', fontWeight:700 }}>AI DECISION ENGINE</span>
             </div>
             {decisions.length === 0 && <div style={{ color:C.dim, fontSize:13 }}>Waiting for triage…</div>}
             {decisions.map((d, i) => (
@@ -210,7 +209,7 @@ export default function TrackPage() {
                   <div style={{ fontSize:13, fontWeight:700, color:d.color, marginBottom:2 }}>{d.label}</div>
                   <div style={{ fontSize:11, color:C.muted }}>{d.detail}</div>
                 </div>
-                {i <= revealIdx && <div style={{ marginLeft:'auto', fontSize:10, color:C.greenBright, fontWeight:700, border:`1px solid ${C.greenBright}44`, borderRadius:4, padding:'2px 6px' }}>✓ ACTIVE</div>}
+                {i <= revealIdx && <div style={{ marginLeft:'auto', fontSize:10, color:C.red, fontWeight:700, border:`1px solid ${C.red}44`, borderRadius:4, padding:'2px 6px' }}>✓ ACTIVE</div>}
               </div>
             ))}
           </div>
@@ -231,10 +230,10 @@ export default function TrackPage() {
           {/* ETA Panel */}
           {incident?.assignedResource && (
             <div style={{ background:`linear-gradient(135deg,${C.red2},rgba(14,21,34,0.97))`, border:`1px solid rgba(196,24,24,0.4)`, borderRadius:12, padding:'16px 20px', textAlign:'center', boxShadow:`0 0 30px rgba(196,24,24,0.15)` }}>
-              <div style={{ fontSize:9, color:C.amber, letterSpacing:'0.16em', fontWeight:700, marginBottom:6 }}>UNIT DISPATCHED</div>
+              <div style={{ fontSize:9, color:C.red, letterSpacing:'0.16em', fontWeight:700, marginBottom:6 }}>UNIT DISPATCHED</div>
               <div style={{ fontSize:28, fontWeight:900, color:C.text, marginBottom:4 }}>{incident.assignedResource}</div>
               <div style={{ fontSize:13, color:C.muted, marginBottom:10 }}>Estimated Arrival</div>
-              <div style={{ fontSize:42, fontWeight:900, color:eta <= 2 ? C.greenBright : C.red, fontFamily:'monospace', marginBottom:4 }}>{eta ?? '—'}<span style={{ fontSize:16, fontWeight:400, marginLeft:4 }}>min</span></div>
+              <div style={{ fontSize:42, fontWeight:900, color:eta <= 2 ? C.red : C.red, fontFamily:'monospace', marginBottom:4 }}>{eta ?? '—'}<span style={{ fontSize:16, fontWeight:400, marginLeft:4 }}>min</span></div>
               <div style={{ height:3, background:'rgba(255,255,255,0.06)', borderRadius:2 }}>
                 <div style={{ height:'100%', width:`${Math.min(100, (etaTick / ((incident.etaMinutes || 5) * 60)) * 100)}%`, background:C.red, borderRadius:2, transition:'width 1s linear' }} />
               </div>
