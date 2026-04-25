@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import MapView from '../components/MapView';
 
 const R = '#c62828'; // base red
 const bg1 = '#121212', bd = '#2a2a2a', mu = '#888', di = '#444', tx = '#f5f5f5';
@@ -87,6 +88,14 @@ export default function DoneReport({ profile, inc, dispatch, triage, onReset }) 
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Mini Map */}
+          <div style={{ background: bg1, border: `1px solid ${bd}`, borderRadius: 8, padding: 4, height: 220, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 12, left: 16, zIndex: 1000, fontSize: 10, color: '#aaa', letterSpacing: '0.15em', fontWeight: 700, background: 'rgba(0,0,0,0.6)', padding: '4px 8px', borderRadius: 4, backdropFilter: 'blur(4px)' }}>
+              LIVE TRACKING LINK ESTABLISHED
+            </div>
+            <MapView incidents={inc ? [inc] : []} selectedIncident={inc} />
           </div>
 
         </div>
