@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/ShrijanSanidhya/Kavach.AI/main/client/public/favicon.ico" width="80" alt="Kavach.AI Shield" />
-  <h1>KAVACH.AI</h1>
+  <img src="https://raw.githubusercontent.com/ShrijanSanidhya/Kavach.AI/main/client/public/favicon.ico" width="80" alt="Kavach Shield" />
+  <h1>KAVACH</h1>
   <p><strong>Autonomous Agentic Emergency Dispatch System</strong></p>
   <p><em>Built to simplify chaos. Designed to save lives.</em></p>
 </div>
@@ -10,8 +10,8 @@
 ## 🌍 The Problem
 When disaster strikes, the 911/112 emergency dispatch system often becomes a bottleneck. Panicking callers struggle to explain their exact location and situation, while human operators get overwhelmed by high call volumes. Critical minutes are lost routing the call to the right department (Fire, Medical, Police, or NDRF).
 
-## 🛡️ Our Solution: KAVACH.AI
-KAVACH.AI replaces the traditional, manual call-center bottleneck with an **Autonomous AI Dispatcher**. 
+## 🛡️ Our Solution: KAVACH
+KAVACH replaces the traditional, manual call-center bottleneck with an **Autonomous AI Dispatcher**. 
 
 We took the complex concept of "Agentic AI" and made it invisible to the user. To a non-techie person in distress, Kavach is just a button you hold to talk. You speak in your native language (e.g., Hindi/English), you point your camera, and you are immediately told: *"Help is on the way."*
 

@@ -157,7 +157,7 @@ export default function TrackPage() {
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           <Link to="/" style={{ display:'flex', alignItems:'center', gap:8, textDecoration:'none' }}>
             <ShieldIcon size={22} />
-            <span style={{ fontWeight:900, fontSize:15, letterSpacing:'0.12em', color:C.text }}>KAVACH<span style={{ color:C.red }}>.AI</span></span>
+            <span style={{ fontWeight:900, fontSize:15, letterSpacing:'0.12em', color:C.text }}>KAVACH</span>
           </Link>
           <span style={{ color:C.muted, fontSize:12 }}>/ INCIDENT TRACKER</span>
         </div>

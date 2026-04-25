@@ -140,7 +140,7 @@ export default function SOSPage() {
       <nav style={{ position:'relative', zIndex:10, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 32px', borderBottom:`1px solid ${C.border}`, background:C.bg1 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <ShieldIcon size={26} />
-          <span style={{ fontWeight:900, fontSize:16, letterSpacing:'0.13em', color:C.text }}>KAVACH<span style={{ color:C.red }}>.AI</span></span>
+          <span style={{ fontWeight:900, fontSize:16, letterSpacing:'0.13em', color:C.text }}>KAVACH</span>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:20 }}>
           {step !== STEP.IDLE && <button onClick={reset} style={{ background:'none', border:`1px solid ${C.border}`, color:C.muted, padding:'5px 14px', borderRadius:6, cursor:'pointer', fontSize:12 }}>Reset</button>}

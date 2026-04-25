@@ -75,7 +75,7 @@ export default function CommandCenter() {
 
         <Link to="/" style={{display:'flex',alignItems:'center',gap:9,textDecoration:'none'}}>
           <ShieldIcon size={24} />
-          <span style={{fontWeight:900,fontSize:15,letterSpacing:'0.13em',color:C.text}}>KAVACH<span style={{color:C.red}}>.AI</span></span>
+          <span style={{fontWeight:900,fontSize:15,letterSpacing:'0.13em',color:C.text}}>KAVACH</span>
           <span style={{color:C.muted,fontSize:12,marginLeft:4}}>/ Command Center</span>
         </Link>
 
