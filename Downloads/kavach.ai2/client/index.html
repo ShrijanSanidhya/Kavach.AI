@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KAVACH.AI — Emergency Dispatch System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      :root {
+        --bg:      #0a0000;
+        --bg1:     #110000;
+        --bg2:     #1a0000;
+        --bg3:     #220000;
+        --border:  rgba(180,0,0,0.22);
+        --red:     #e01c1c;
+        --red-dim: #7f1010;
+        --red-glow:rgba(224,28,28,0.35);
+        --text:    #f0e0e0;
+        --muted:   #8a5a5a;
+        --orange:  #e05a1c;
+        --yellow:  #c8a020;
+        --green:   #1cc87a;
+        --mono:    'JetBrains Mono', monospace;
+        --sans:    'Inter', sans-serif;
+      }
+      html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); }
+      #root { height: 100%; }
+      * { scrollbar-width: thin; scrollbar-color: var(--red-dim) transparent; }
+      *::-webkit-scrollbar { width: 4px; }
+      *::-webkit-scrollbar-thumb { background: var(--red-dim); border-radius: 2px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

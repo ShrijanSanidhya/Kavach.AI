@@ -1,0 +1,30 @@
+/* KAVACH.AI Global Theme — Futuristic Space-Tech */
+:root {
+  --bg:     #030a14;
+  --bg1:    #0a1628;
+  --bg2:    #0f1f38;
+  --bg3:    #162840;
+  --border: rgba(0,200,255,0.14);
+  --cyan:   #00c8ff;
+  --red:    #ff2d2d;
+  --orange: #ff6b2d;
+  --gold:   #ffcc00;
+  --green:  #00ff88;
+  --purple: #a78bfa;
+  --text:   #e2f0ff;
+  --muted:  #4a7a9b;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
+#root { height: 100%; }
+* { scrollbar-width: thin; scrollbar-color: rgba(0,200,255,0.3) transparent; }
+*::-webkit-scrollbar { width: 3px; }
+*::-webkit-scrollbar-thumb { background: rgba(0,200,255,0.3); border-radius: 2px; }
+textarea::placeholder { color: #2a4a6a; }
+input::placeholder { color: #2a4a6a; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes ripple { 0%{transform:scale(1);opacity:0.7} 100%{transform:scale(2.4);opacity:0} }
+@keyframes spin { to{transform:rotate(360deg)} }
+@keyframes glow { 0%,100%{box-shadow:0 0 20px rgba(0,200,255,0.4)} 50%{box-shadow:0 0 40px rgba(0,200,255,0.7)} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
