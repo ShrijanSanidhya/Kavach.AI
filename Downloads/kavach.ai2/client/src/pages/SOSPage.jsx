@@ -71,7 +71,12 @@ export default function SOSPage() {
   const hasInput=text.trim()||media;
 
   return (
-    <div style={{minHeight:'100vh',background:`radial-gradient(ellipse 100% 60% at 50% 0%,rgba(0,80,160,0.3) 0%,${C.bg} 70%)`,display:'flex',flexDirection:'column',color:C.text}}>
+    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',color:C.text,position:'relative',overflow:'hidden',background:C.bg}}>
+      {/* Ambient color blobs */}
+      <div style={{position:'fixed',top:'-10%',left:'-5%',width:'45%',height:'55%',borderRadius:'50%',background:'radial-gradient(circle,rgba(0,120,255,0.12),transparent 70%)',pointerEvents:'none',zIndex:0}}/>
+      <div style={{position:'fixed',top:'10%',right:'-8%',width:'40%',height:'50%',borderRadius:'50%',background:'radial-gradient(circle,rgba(120,0,255,0.1),transparent 70%)',pointerEvents:'none',zIndex:0}}/>
+      <div style={{position:'fixed',bottom:'5%',left:'10%',width:'35%',height:'40%',borderRadius:'50%',background:'radial-gradient(circle,rgba(255,60,100,0.07),transparent 70%)',pointerEvents:'none',zIndex:0}}/>
+      <div style={{position:'relative',zIndex:1,display:'flex',flexDirection:'column',minHeight:'100vh'}}>
       <input ref={fileRef} type="file" accept="image/*,video/*" style={{display:'none'}} onChange={onFile}/>
 
       {/* NAV */}
@@ -101,8 +106,8 @@ export default function SOSPage() {
           {/* IDLE / LISTENING */}
           {(step===STEP.IDLE||step===STEP.LISTENING)&&(<>
             <div style={{textAlign:'center',marginBottom:40}}>
-              <div style={{fontSize:11,color:C.cyan,letterSpacing:'0.2em',marginBottom:16,fontWeight:600}}>EMERGENCY DISPATCH SYSTEM</div>
-              <h1 style={{fontSize:56,fontWeight:900,lineHeight:1.05,marginBottom:14,background:`linear-gradient(135deg,${C.text} 0%,${C.cyan} 60%,${C.red} 100%)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
+              <div style={{fontSize:11,letterSpacing:'0.2em',marginBottom:16,fontWeight:700,background:'linear-gradient(90deg,#00c8ff,#a78bfa)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>EMERGENCY DISPATCH SYSTEM</div>
+              <h1 style={{fontSize:56,fontWeight:900,lineHeight:1.05,marginBottom:14,background:`linear-gradient(135deg,${C.text} 0%,${C.cyan} 35%,#a78bfa 65%,${C.red} 100%)`,WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
                 Need Help?
               </h1>
               <p style={{color:C.muted,fontSize:15,lineHeight:1.65}}>Speak or type your emergency.<br/>AI triage dispatches help in seconds.</p>
@@ -112,15 +117,24 @@ export default function SOSPage() {
             <div style={{display:'flex',justifyContent:'center',marginBottom:32}}>
               <div style={{position:'relative'}}>
                 {listening&&(<>
-                  <span style={{position:'absolute',inset:-20,borderRadius:'50%',border:`2px solid ${C.cyan}`,opacity:0.4,animation:'ripple 1.6s ease-out infinite'}}/>
-                  <span style={{position:'absolute',inset:-38,borderRadius:'50%',border:`1px solid ${C.cyan}`,opacity:0.15,animation:'ripple 1.6s ease-out 0.5s infinite'}}/>
+                  <span style={{position:'absolute',inset:-20,borderRadius:'50%',border:`2px solid ${C.cyan}`,opacity:0.45,animation:'ripple 1.6s ease-out infinite'}}/>
+                  <span style={{position:'absolute',inset:-38,borderRadius:'50%',border:'1px solid #a78bfa',opacity:0.2,animation:'ripple 1.6s ease-out 0.5s infinite'}}/>
+                  <span style={{position:'absolute',inset:-56,borderRadius:'50%',border:'1px solid rgba(255,100,150,0.12)',opacity:1,animation:'ripple 1.6s ease-out 0.9s infinite'}}/>
                 </>)}
                 <button onMouseDown={startMic} onMouseUp={stopMic} onTouchStart={startMic} onTouchEnd={stopMic}
-                  style={{width:120,height:120,borderRadius:'50%',background:listening?`radial-gradient(circle,rgba(0,200,255,0.3),rgba(0,50,100,0.9))`:`radial-gradient(circle,${C.bg3},${C.bg1})`,border:`2px solid ${listening?C.cyan:'rgba(0,200,255,0.2)'}`,boxShadow:listening?`0 0 50px rgba(0,200,255,0.5)`:`0 0 20px rgba(0,100,200,0.2)`,cursor:'pointer',transition:'all 0.2s',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6}}>
-                  <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={listening?C.cyan:'rgba(0,200,255,0.4)'} strokeWidth={1.8}>
+                  style={{width:120,height:120,borderRadius:'50%',
+                    background:listening
+                      ?'radial-gradient(circle at 35% 35%,rgba(0,200,255,0.35),rgba(100,0,200,0.25),rgba(0,30,80,0.95))'
+                      :'radial-gradient(circle at 35% 35%,#162840,#0a1628)',
+                    border:`2px solid ${listening?'rgba(0,200,255,0.8)':'rgba(120,80,255,0.25)'}`,
+                    boxShadow:listening
+                      ?'0 0 30px rgba(0,200,255,0.4),0 0 60px rgba(140,0,255,0.2)'
+                      :'0 0 20px rgba(60,0,120,0.3),0 0 40px rgba(0,80,200,0.1)',
+                    cursor:'pointer',transition:'all 0.25s',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:6}}>
+                  <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={listening?C.cyan:'#7a6aff'} strokeWidth={1.8}>
                     <rect x={9} y={2} width={6} height={13} rx={3}/><path d="M5 10a7 7 0 0 0 14 0"/><line x1={12} y1={19} x2={12} y2={22}/><line x1={8} y1={22} x2={16} y2={22}/>
                   </svg>
-                  <span style={{fontSize:9,letterSpacing:'0.14em',fontWeight:700,color:listening?C.cyan:'rgba(0,200,255,0.4)'}}>{listening?'RELEASE':'HOLD'}</span>
+                  <span style={{fontSize:9,letterSpacing:'0.14em',fontWeight:700,color:listening?C.cyan:'#7a6aff'}}>{listening?'RELEASE':'HOLD'}</span>
                 </button>
               </div>
             </div>
@@ -167,9 +181,14 @@ export default function SOSPage() {
           {/* ANALYZING */}
           {step===STEP.ANALYZING&&(
             <div style={{textAlign:'center',animation:'fadeIn 0.3s ease'}}>
-              <div style={{width:64,height:64,borderRadius:'50%',border:`3px solid ${C.cyan}`,borderTopColor:'transparent',animation:'spin 0.9s linear infinite',margin:'0 auto 24px'}}/>
-              <h2 style={{fontSize:20,fontWeight:700,marginBottom:8,color:C.cyan}}>AI Analyzing…</h2>
-              {media&&<p style={{color:C.purple,fontSize:13,marginBottom:6}}>👁 {media.type==='image'?'Vision model processing image':'Analyzing video context'}</p>}
+              {/* Dual-ring gradient spinner */}
+              <div style={{position:'relative',width:72,height:72,margin:'0 auto 24px'}}>
+                <div style={{position:'absolute',inset:0,borderRadius:'50%',border:'3px solid transparent',borderTopColor:C.cyan,borderRightColor:'#a78bfa',animation:'spin 0.9s linear infinite'}}/>
+                <div style={{position:'absolute',inset:8,borderRadius:'50%',border:'2px solid transparent',borderBottomColor:'rgba(255,100,150,0.4)',borderLeftColor:'rgba(0,200,255,0.2)',animation:'spin 1.4s linear reverse infinite'}}/>
+                <div style={{position:'absolute',inset:'50%',transform:'translate(-50%,-50%)',width:10,height:10,borderRadius:'50%',background:'radial-gradient(circle,#fff,#a78bfa)',boxShadow:'0 0 10px #a78bfa'}}/>
+              </div>
+              <h2 style={{fontSize:20,fontWeight:700,marginBottom:8,background:'linear-gradient(90deg,#00c8ff,#a78bfa)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>AI Analyzing…</h2>
+              {media&&<p style={{color:'#c084fc',fontSize:13,marginBottom:6}}>👁 {media.type==='image'?'Vision model processing image':'Analyzing video context'}</p>}
               <p style={{color:C.muted,fontSize:13}}>{elapsed}s elapsed</p>
             </div>
           )}
