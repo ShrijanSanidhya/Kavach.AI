@@ -92,6 +92,7 @@ export default function SOSPage() {
       <div style={{ position:'fixed', top:'-10%', left:'-5%', width:'45%', height:'55%', borderRadius:'50%', background:'radial-gradient(circle,rgba(0,120,255,0.13),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
       <div style={{ position:'fixed', top:'8%', right:'-8%', width:'40%', height:'50%', borderRadius:'50%', background:'radial-gradient(circle,rgba(130,0,255,0.1),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
       <div style={{ position:'fixed', bottom:'5%', left:'8%', width:'35%', height:'40%', borderRadius:'50%', background:'radial-gradient(circle,rgba(255,50,100,0.07),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
+      <div style={{ position:'fixed', bottom:'20%', right:'5%', width:'30%', height:'35%', borderRadius:'50%', background:'radial-gradient(circle,rgba(220,30,30,0.09),transparent 70%)', pointerEvents:'none', zIndex:0 }} />
 
       <input ref={fileRef} type="file" accept="image/*,video/*" style={{ display:'none' }} onChange={onFile} />
 
@@ -129,7 +130,7 @@ export default function SOSPage() {
                 <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.2em', marginBottom:16, background:'linear-gradient(90deg,#00c8ff,#a78bfa)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
                   EMERGENCY DISPATCH SYSTEM
                 </div>
-                <h1 style={{ fontSize:56, fontWeight:900, lineHeight:1.05, marginBottom:14, background:`linear-gradient(135deg,${C.text} 0%,${C.cyan} 35%,#a78bfa 65%,${C.red} 100%)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+                <h1 style={{ fontSize:56, fontWeight:900, lineHeight:1.05, marginBottom:14, background:`linear-gradient(135deg,${C.text} 0%,${C.cyan} 28%,#a78bfa 55%,#ff2d2d 80%,#ff6060 100%)`, WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
                   Need Help?
                 </h1>
                 <p style={{ color:C.muted, fontSize:15, lineHeight:1.65 }}>Speak or type your emergency.<br/>AI triage dispatches help in seconds.</p>
@@ -141,7 +142,7 @@ export default function SOSPage() {
                   {listening && (<>
                     <span style={{ position:'absolute', inset:-20, borderRadius:'50%', border:`2px solid ${C.cyan}`, opacity:0.45, animation:'ripple 1.6s ease-out infinite' }} />
                     <span style={{ position:'absolute', inset:-38, borderRadius:'50%', border:'1px solid #a78bfa', opacity:0.25, animation:'ripple 1.6s ease-out 0.5s infinite' }} />
-                    <span style={{ position:'absolute', inset:-56, borderRadius:'50%', border:'1px solid rgba(255,80,130,0.15)', animation:'ripple 1.6s ease-out 0.9s infinite' }} />
+                    <span style={{ position:'absolute', inset:-56, borderRadius:'50%', border:'2px solid rgba(220,30,30,0.35)', animation:'ripple 1.6s ease-out 0.9s infinite' }} />
                   </>)}
                   <button onMouseDown={startMic} onMouseUp={stopMic} onTouchStart={startMic} onTouchEnd={stopMic}
                     style={{ width:120, height:120, borderRadius:'50%',
@@ -162,7 +163,7 @@ export default function SOSPage() {
               </div>
 
               {/* INPUT CARD */}
-              <div style={{ background:'linear-gradient(135deg,rgba(10,22,40,0.92),rgba(22,10,50,0.88))', border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', backdropFilter:'blur(12px)', boxShadow:'0 20px 60px rgba(0,0,0,0.5),inset 0 1px 0 rgba(0,200,255,0.08)' }}>
+              <div style={{ background:'linear-gradient(135deg,rgba(10,22,40,0.92),rgba(22,10,50,0.88))', border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', backdropFilter:'blur(12px)', boxShadow:'0 20px 60px rgba(0,0,0,0.5),inset 0 1px 0 rgba(0,200,255,0.08),0 0 0 1px rgba(220,30,30,0.06)' }}>
                 <div style={{ padding:'18px 20px 10px' }}>
                   <label style={{ display:'block', fontSize:10, color:C.cyan, letterSpacing:'0.14em', marginBottom:10, fontWeight:700 }}>DESCRIBE YOUR EMERGENCY</label>
                   <textarea value={text} onChange={e=>setText(e.target.value)}
@@ -192,7 +193,7 @@ export default function SOSPage() {
                     {media ? '🖼 Change' : '📎 Attach Photo/Video'}
                   </button>
                   <button onClick={()=>submit(text)} disabled={!hasInput}
-                    style={{ background: hasInput ? 'linear-gradient(135deg,#00c8ff,#6030d0)' : 'rgba(0,200,255,0.05)', color: hasInput ? '#fff' : C.muted, border:'none', borderRadius:8, padding:'10px 26px', fontWeight:800, fontSize:13, letterSpacing:'0.08em', cursor: hasInput ? 'pointer' : 'not-allowed', boxShadow: hasInput ? '0 4px 20px rgba(100,0,255,0.3)' : 'none', transition:'all 0.2s' }}>
+                    style={{ background: hasInput ? 'linear-gradient(135deg,#00c8ff,#6030d0,#cc1010)' : 'rgba(0,200,255,0.05)', color: hasInput ? '#fff' : C.muted, border:'none', borderRadius:8, padding:'10px 26px', fontWeight:800, fontSize:13, letterSpacing:'0.08em', cursor: hasInput ? 'pointer' : 'not-allowed', boxShadow: hasInput ? '0 4px 20px rgba(180,0,60,0.3)' : 'none', transition:'all 0.2s' }}>
                     SUBMIT →
                   </button>
                 </div>
