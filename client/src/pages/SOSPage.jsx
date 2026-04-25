@@ -1,13 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import DoneReport from './DoneReport';
+import { getProfile } from './emergencyProfiles';
 
 const API = 'https://kavach-ai-v1qn.onrender.com';
 const STEP = { IDLE:0, LISTENING:1, ANALYZING:2, FOLLOWUP:3, DONE:4 };
 const C = {
   bg:'#141414', bg1:'#1c1c1c', bg2:'#242424', bg3:'#2e2e2e',
-  border:'#333333', red:'#d32f2f', red2:'#b71c1c',
+  border:'#333333',
+  red:'#c62828',   // aesthetic deep crimson
+  red2:'#b71c1c',
+  redGlow:'rgba(198,40,40,0.35)',
   text:'#f5f5f5', muted:'#9e9e9e', dim:'#616161',
 };
+
+// Glowing shield icon
+function ShieldIcon({ size = 26 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ filter: `drop-shadow(0 0 5px ${C.redGlow})` }}>
+      <path d="M12 1L3 5v6c0 5.55 3.82 10.74 9 12 5.18-1.26 9-6.45 9-12V5L12 1z"
+        fill={C.red} />
+      <path d="M12 3.18L5 6.6V11c0 4.52 3.02 8.76 7 9.93 3.98-1.17 7-5.41 7-9.93V6.6L12 3.18z"
+        fill="rgba(255,255,255,0.07)" />
+    </svg>
+  );
+}
 const speak = (t) => { 
   if (!window.speechSynthesis) return; 
   window.speechSynthesis.cancel(); 
@@ -92,7 +110,7 @@ export default function SOSPage() {
         setIncidentId(d.dispatch.incident.id);
         setStep(STEP.DONE);
         speak('Aap safe jagah pe rahein. Help pahunch rahi hai.');
-        setTimeout(() => navigate(`/track/${d.dispatch.incident.id}`), 2200);
+        setTimeout(() => navigate(`/track/${d.dispatch.incident.id}`), 6000);
       } else { setStep(STEP.FOLLOWUP); if(d.triage?.followUpQuestion) speak(d.triage.followUpQuestion); }
     } catch(err) { clearInterval(timerRef.current); console.error(err); setStep(STEP.IDLE); }
   }, [media]);
@@ -121,10 +139,8 @@ export default function SOSPage() {
       {/* ── NAV ── */}
       <nav style={{ position:'relative', zIndex:10, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 32px', borderBottom:`1px solid ${C.border}`, background:C.bg1 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <svg width={26} height={26} viewBox="0 0 24 24" fill={C.red}>
-            <path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z"/>
-          </svg>
-          <span style={{ fontWeight:800, fontSize:16, letterSpacing:'0.12em', color:C.text }}>KAVACH<span style={{ color:C.red }}>.AI</span></span>
+          <ShieldIcon size={26} />
+          <span style={{ fontWeight:900, fontSize:16, letterSpacing:'0.13em', color:C.text }}>KAVACH<span style={{ color:C.red }}>.AI</span></span>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:20 }}>
           {step !== STEP.IDLE && <button onClick={reset} style={{ background:'none', border:`1px solid ${C.border}`, color:C.muted, padding:'5px 14px', borderRadius:6, cursor:'pointer', fontSize:12 }}>Reset</button>}
@@ -141,15 +157,15 @@ export default function SOSPage() {
       </nav>
 
       {/* ── MAIN ── */}
-      <div style={{ position:'relative', zIndex:1, flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'32px 20px' }}>
-        <div style={{ width:'100%', maxWidth:540, animation:'fadeIn 0.4s ease' }}>
+      <div style={{ position:'relative', zIndex:1, flex:1, display:'flex', alignItems: step===STEP.DONE ? 'flex-start' : 'center', justifyContent:'center', padding: step===STEP.DONE ? '24px 20px 40px' : '32px 20px', overflowY: step===STEP.DONE ? 'auto' : 'visible', width: '100%' }}>
+        <div style={{ width:'100%', maxWidth: step===STEP.DONE ? 1100 : 540, transition: 'max-width 0.5s cubic-bezier(0.16, 1, 0.3, 1)', animation:'fadeIn 0.4s ease' }}>
 
           {/* IDLE / LISTENING */}
           {(step===STEP.IDLE || step===STEP.LISTENING) && (
             <>
               <div style={{ textAlign:'center', marginBottom:40 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, fontSize:12, fontWeight:600, color:C.muted, marginBottom:16 }}>
-                  Kavach <svg width={12} height={12} viewBox="0 0 24 24" fill={C.red}><path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z"/></svg> Emergency Dispatch System
+                  Kavach <ShieldIcon size={12} /> Emergency Dispatch System
                 </div>
                 <h1 style={{ fontSize:54, fontWeight:900, lineHeight:1.05, marginBottom:14, color: C.text }}>
                   Need Help<span style={{ color: C.red }}>?</span>
@@ -237,7 +253,7 @@ export default function SOSPage() {
             <div style={{ background:C.bg1, border:`1px solid ${C.border}`, borderRadius:12, padding:20, marginTop:14 }}>
               <div style={{ display:'flex', alignItems:'flex-start', gap:12, marginBottom:14 }}>
                 <div style={{ width:34, height:34, borderRadius:'50%', background:C.bg3, border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill={C.red}><path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z"/></svg>
+                  <ShieldIcon size={16} />
                 </div>
                 <div>
                   <p style={{ fontSize:10, color:C.red, marginBottom:4, letterSpacing:'0.12em', fontWeight:700 }}>KAVACH AI</p>
@@ -265,19 +281,15 @@ export default function SOSPage() {
           </>)}
 
           {/* DONE */}
-          {step===STEP.DONE && (<>
-            <TriageCard triage={triage} bar={bar} barCol={barCol} vision={vision} />
-            <div style={{ background:C.bg2, border:`1px solid ${C.border}`, borderRadius:14, padding:28, marginTop:14, textAlign:'center' }}>
-              <div style={{ fontSize:44, marginBottom:10 }}>✅</div>
-              <h2 style={{ fontSize:24, fontWeight:800, color:C.red, marginBottom:8 }}>HELP IS ON THE WAY</h2>
-              {dispatch?.incident?.assignedResource && <p style={{ fontSize:15, marginBottom:6 }}><strong style={{ color:C.text }}>{dispatch.incident.assignedResource}</strong> dispatched{dispatch.incident.etaMinutes ? ` · ETA ${dispatch.incident.etaMinutes} min` : ''}</p>}
-              {dispatch?.status==='merged' && <p style={{ fontSize:12, color:C.muted, marginBottom:6 }}>Merged with an existing active incident</p>}
-              <p style={{ color:C.muted, fontSize:13, lineHeight:1.65 }}>Stay on the line · KAVACH is with you<br/>Aap safe jagah pe rahein</p>
-            </div>
-            <button onClick={reset} style={{ marginTop:12, width:'100%', padding:11, background:'none', border:`1px solid ${C.border}`, color:C.muted, borderRadius:10, fontSize:13, cursor:'pointer' }}>
-              Report Another Emergency
-            </button>
-          </>)}
+          {step===STEP.DONE && (
+            <DoneReport 
+              profile={getProfile(triage?.emergencyType, triage?.resourceNeeded)} 
+              inc={dispatch?.incident} 
+              dispatch={dispatch} 
+              triage={triage} 
+              onReset={() => { setStep(STEP.IDLE); setText(''); setMedia(null); setVision(''); setDispatch(null); setTriage(null); }} 
+            />
+          )}
 
         </div>
       </div>
@@ -292,6 +304,8 @@ export default function SOSPage() {
     </div>
   );
 }
+
+// (End of file)
 
 function TriageCard({ triage, bar, barCol, vision }) {
   if (!triage) return null;

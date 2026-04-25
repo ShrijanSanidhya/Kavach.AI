@@ -7,11 +7,27 @@ const API = 'https://kavach-ai-v1qn.onrender.com';
 
 const C = {
   bg:'#141414', bg1:'#1c1c1c', bg2:'#242424', bg3:'#2e2e2e',
-  border:'#333333', red:'#d32f2f', red2:'#b71c1c',
+  border:'#333333',
+  red:'#c62828',   // aesthetic deep crimson
+  red2:'#b71c1c',
+  redGlow:'rgba(198,40,40,0.35)',
   text:'#f5f5f5', muted:'#9e9e9e', dim:'#616161',
   amber:'#f57c00', orange:'#e64a19', gold:'#fbc02d', green:'#388e3c', greenBright:'#4caf50',
   cyan:'#1976d2'
 };
+
+// Glowing shield icon
+function ShieldIcon({ size = 24 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ filter: `drop-shadow(0 0 5px rgba(198,40,40,0.4))` }}>
+      <path d="M12 1L3 5v6c0 5.55 3.82 10.74 9 12 5.18-1.26 9-6.45 9-12V5L12 1z"
+        fill="#c62828" />
+      <path d="M12 3.18L5 6.6V11c0 4.52 3.02 8.76 7 9.93 3.98-1.17 7-5.41 7-9.93V6.6L12 3.18z"
+        fill="rgba(255,255,255,0.07)" />
+    </svg>
+  );
+}
 
 const sevColor = (s) => s==='HIGH'?C.red:s==='MEDIUM'?C.orange:C.amber;
 
@@ -58,8 +74,8 @@ export default function CommandCenter() {
       <div style={{height:54,backgroundColor:C.bg1,borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 16px',flexShrink:0}}>
 
         <Link to="/" style={{display:'flex',alignItems:'center',gap:9,textDecoration:'none'}}>
-          <svg width={24} height={24} viewBox="0 0 24 24" fill={C.red}><path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z"/></svg>
-          <span style={{fontWeight:800,fontSize:14,letterSpacing:'0.12em',color:C.text}}>KAVACH<span style={{color:C.red}}>.AI</span></span>
+          <ShieldIcon size={24} />
+          <span style={{fontWeight:900,fontSize:15,letterSpacing:'0.13em',color:C.text}}>KAVACH<span style={{color:C.red}}>.AI</span></span>
           <span style={{color:C.muted,fontSize:12,marginLeft:4}}>/ Command Center</span>
         </Link>
 

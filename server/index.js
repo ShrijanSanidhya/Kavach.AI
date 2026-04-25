@@ -29,6 +29,9 @@ setInterval(broadcastState, 1500);
 
 app.get('/health', (_, res) => res.json({ ok: true }));
 
+// REST snapshot — returns current store state as plain JSON (TrackPage fallback)
+app.get('/api/state-snapshot', (_, res) => res.json(store));
+
 // SSE stream
 app.get('/api/state', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');

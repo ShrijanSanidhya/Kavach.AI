@@ -1,17 +1,33 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, CircleMarker, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const API = 'https://kavach-ai-v1qn.onrender.com';
 
 const C = {
   bg:'#141414', bg1:'#1c1c1c', bg2:'#242424', bg3:'#2e2e2e',
-  border:'#333333', red:'#d32f2f', red2:'#b71c1c',
+  border:'#333333',
+  red:'#c62828',   // aesthetic deep crimson
+  red2:'#b71c1c',
+  redGlow:'rgba(198,40,40,0.35)',
   text:'#f5f5f5', muted:'#9e9e9e', dim:'#616161',
   amber:'#f57c00', orange:'#e64a19', gold:'#fbc02d', green:'#388e3c', greenBright:'#4caf50',
   cyan:'#1976d2'
 };
+
+// Shield icon component with aesthetic red + glow
+function ShieldIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      style={{ filter: `drop-shadow(0 0 4px ${C.redGlow})` }}>
+      <path d="M12 1L3 5v6c0 5.55 3.82 10.74 9 12 5.18-1.26 9-6.45 9-12V5L12 1z"
+        fill={C.red} />
+      <path d="M12 3.18L5 6.6V11c0 4.52 3.02 8.76 7 9.93 3.98-1.17 7-5.41 7-9.93V6.6L12 3.18z"
+        fill="rgba(255,255,255,0.07)" />
+    </svg>
+  );
+}
 
 const FIRE_DECISIONS = [
   { id:'d1', label:'Dispatch Fire Brigade', icon:'🚒', detail:'Nearest unit: FIRE-1 · ETA ~4 min', color:C.red },
@@ -49,9 +65,37 @@ export default function TrackPage() {
   const [etaTick, setEtaTick]    = useState(0);
   const [aiMsg, setAiMsg]        = useState('');
   const [phase, setPhase]        = useState('received'); // received → triaging → dispatched
+  const [loadError, setLoadError] = useState(false);
   const esRef = useRef(null);
+  const foundRef = useRef(false);
 
-  // Pull from SSE state stream and find our incident
+  const applyIncident = (found) => {
+    if (!found) return;
+    foundRef.current = true;
+    setLoadError(false);
+    setIncident(found);
+    setDecisions(getDecisions(found.emergencyType));
+    setPhase(found.status === 'dispatched' ? 'dispatched' : 'triaging');
+  };
+
+  // REST fallback — immediately fetch current state on mount
+  useEffect(() => {
+    const fetchOnce = async () => {
+      try {
+        const r = await fetch(`${API}/api/state-snapshot`);
+        if (r.ok) {
+          const s = await r.json();
+          const found = s.incidents?.find(i => i.id === incidentId || i.seqId == incidentId);
+          applyIncident(found);
+        }
+      } catch {}
+    };
+    // Give SSE 1.5s head-start, then fallback to REST
+    const t = setTimeout(fetchOnce, 1500);
+    return () => clearTimeout(t);
+  }, [incidentId]);
+
+  // SSE stream — primary real-time feed
   useEffect(() => {
     const connect = () => {
       const es = new EventSource(`${API}/api/state`);
@@ -59,10 +103,10 @@ export default function TrackPage() {
         try {
           const s = JSON.parse(e.data);
           const found = s.incidents.find(i => i.id === incidentId || i.seqId == incidentId);
-          if (found) {
-            setIncident(found);
-            setDecisions(getDecisions(found.emergencyType));
-            setPhase(found.status === 'dispatched' ? 'dispatched' : 'triaging');
+          if (found) applyIncident(found);
+          else if (!foundRef.current && s.incidents !== undefined) {
+            // SSE stream live but incident not found — show error
+            setLoadError(true);
           }
         } catch {}
       };
@@ -112,8 +156,8 @@ export default function TrackPage() {
       <nav style={{ position:'relative', zIndex:10, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 28px', borderBottom:`1px solid ${C.border}`, background:C.bg1 }}>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           <Link to="/" style={{ display:'flex', alignItems:'center', gap:8, textDecoration:'none' }}>
-            <svg width={22} height={22} viewBox="0 0 24 24" fill={C.red}><path d="M12 1L3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5L12 1z"/></svg>
-            <span style={{ fontWeight:800, fontSize:14, letterSpacing:'0.1em', color:C.text }}>KAVACH<span style={{ color:C.red }}>.AI</span></span>
+            <ShieldIcon size={22} />
+            <span style={{ fontWeight:900, fontSize:15, letterSpacing:'0.12em', color:C.text }}>KAVACH<span style={{ color:C.red }}>.AI</span></span>
           </Link>
           <span style={{ color:C.muted, fontSize:12 }}>/ INCIDENT TRACKER</span>
         </div>
@@ -124,7 +168,23 @@ export default function TrackPage() {
       </nav>
 
       {/* BODY */}
-      <div style={{ position:'relative', zIndex:1, flex:1, display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, padding:16, maxWidth:1100, margin:'0 auto', width:'100%' }}>
+      {loadError && !incident && (
+        <div style={{ padding:'40px 28px', textAlign:'center', color:C.muted, fontSize:14, animation:'fadeIn 0.4s ease' }}>
+          <div style={{ fontSize:36, marginBottom:12 }}>📡</div>
+          <div style={{ color:C.text, fontWeight:700, marginBottom:6 }}>Connecting to incident stream…</div>
+          <div style={{ fontSize:12 }}>If this persists, the server may be waking up. Please wait a moment.</div>
+        </div>
+      )}
+      {!incident && !loadError && (
+        <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:18, padding:40 }}>
+          <div style={{ position:'relative', width:60, height:60 }}>
+            <div style={{ position:'absolute', inset:0, borderRadius:'50%', border:`3px solid transparent`, borderTopColor:C.red, borderRightColor:C.red, animation:'spin 0.9s linear infinite' }} />
+            <div style={{ position:'absolute', inset:8, borderRadius:'50%', border:'2px solid transparent', borderBottomColor:C.red2, animation:'spin 1.4s linear reverse infinite' }} />
+          </div>
+          <div style={{ color:C.muted, fontSize:13 }}>Connecting to incident <code style={{ color:C.red, fontFamily:'monospace' }}>{incidentId}</code>…</div>
+        </div>
+      )}
+      {incident && <div style={{ position:'relative', zIndex:1, flex:1, display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, padding:16, maxWidth:1100, margin:'0 auto', width:'100%' }}>
 
         {/* LEFT COL */}
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
@@ -238,12 +298,13 @@ export default function TrackPage() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       <style>{`
         @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.3} }
         @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+        @keyframes spin   { to{transform:rotate(360deg)} }
         .leaflet-container { background:#141414 !important; }
         .leaflet-control-zoom { display:none; }
       `}</style>
