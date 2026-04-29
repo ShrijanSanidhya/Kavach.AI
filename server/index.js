@@ -155,5 +155,28 @@ app.post('/api/chaos', async (req, res) => {
   });
 });
 
+// Network-based location fallback via Google Geolocation API
+// Proxied server-side so the API key stays secret
+app.post('/api/geolocate', async (req, res) => {
+  const key = process.env.GOOGLE_API_KEY;
+  if (!key) return res.status(503).json({ error: 'Google API key not configured' });
+  try {
+    const r = await fetch(
+      `https://www.googleapis.com/geolocation/v1/geolocate?key=${key}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ considerIp: true }) }
+    );
+    const data = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: data?.error?.message || 'Geolocation failed' });
+    return res.json({
+      lat: data.location?.lat,
+      lng: data.location?.lng,
+      accuracy: data.accuracy,
+      source: 'network'
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`✅ KAVACH server on http://localhost:${PORT}`));

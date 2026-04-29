@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import DoneReport from './DoneReport';
 import { getProfile } from './emergencyProfiles';
+import { useHybridLocation } from '../hooks/useHybridLocation';
 
 const API = 'http://localhost:3001';
 const STEP = { IDLE:0, LISTENING:1, ANALYZING:2, FOLLOWUP:3, DONE:4 };
@@ -42,40 +43,16 @@ export default function SOSPage() {
   const [elapsed,setElapsed]     = useState(0);
   const [media,setMedia] = useState(null);
   const [vision,setVision] = useState('');
-  const [realLocation,setRealLocation] = useState(null);
-  const [locAccuracy,setLocAccuracy]   = useState(null);
-  const watchRef = useRef(null);
+  const loc = useHybridLocation();
+  const realLocation = loc ? { lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy } : null;
+  const locAccuracy  = loc?.accuracy ?? null;
+  const locMode      = loc?.mode ?? null;
   const recRef   = useRef(null);
   const timerRef = useRef(null);
   const fileRef  = useRef(null);
 
   const stepRef = useRef(STEP.IDLE);
   useEffect(() => { stepRef.current = step; }, [step]);
-
-  // Real-time GPS watchPosition — updates whenever device moves
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    let lastLat = null, lastLng = null;
-    const SMOOTH = 0.4; // lerp factor — prevents jitter
-
-    watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-        setLocAccuracy(accuracy);
-        if (lastLat === null) {
-          lastLat = lat; lastLng = lng;
-        } else {
-          // Smooth interpolation — Uber-style gradual updates
-          lastLat = lastLat + (lat - lastLat) * SMOOTH;
-          lastLng = lastLng + (lng - lastLng) * SMOOTH;
-        }
-        setRealLocation({ lat: lastLat, lng: lastLng, accuracy, ts: Date.now() });
-      },
-      (err) => console.warn('GPS:', err.message),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-    return () => { if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current); };
-  }, []);
 
   useEffect(() => {
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
@@ -233,10 +210,18 @@ export default function SOSPage() {
                 </h1>
                 <p style={{ color:C.muted, fontSize:15, lineHeight:1.65 }}>Speak your emergency. Our AI triage agent<br/>dispatches help and stays with you.</p>
                 <div style={{ display:'flex', justifyContent:'center', gap:8, marginTop:14 }}>
-                  <span style={{ fontSize:11, background:C.bg2, border:`1px solid ${realLocation ? (locAccuracy <= 20 ? '#388e3c44' : '#f57c0044') : C.border}`, color: realLocation ? (locAccuracy <= 20 ? '#4caf50' : '#f57c00') : C.dim, borderRadius:20, padding:'4px 12px', fontWeight:600, letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:5 }}>
-                    <span style={{ width:6, height:6, borderRadius:'50%', background: realLocation ? (locAccuracy <= 20 ? '#4caf50' : '#f57c00') : C.dim, animation: realLocation ? 'pulse 2s infinite' : 'none' }} />
-                    {realLocation ? `GPS ${locAccuracy <= 20 ? 'HIGH' : locAccuracy <= 100 ? 'MED' : 'LOW'} ±${Math.round(locAccuracy||0)}m` : 'Acquiring GPS…'}
-                  </span>
+                  {(() => {
+                    const conf = loc?.confidence;
+                    const modeLabel = loc?.mode === 'realtime_gps' ? 'GPS' : loc?.mode === 'network_fallback' ? 'NETWORK' : loc?.mode === 'hybrid' ? 'HYBRID' : null;
+                    const dotColor = conf === 'high' ? '#4caf50' : conf === 'medium' ? '#f57c00' : C.dim;
+                    const borderCol = conf === 'high' ? '#388e3c44' : conf === 'medium' ? '#f57c0044' : C.border;
+                    return (
+                      <span style={{ fontSize:11, background:C.bg2, border:`1px solid ${borderCol}`, color: loc ? dotColor : C.dim, borderRadius:20, padding:'4px 12px', fontWeight:600, letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:5 }}>
+                        <span style={{ width:6, height:6, borderRadius:'50%', background: loc ? dotColor : C.dim, animation: loc ? 'pulse 2s infinite' : 'none' }} />
+                        {loc ? `${modeLabel} ${conf?.toUpperCase()} ±${Math.round(locAccuracy||0)}m` : 'Acquiring location…'}
+                      </span>
+                    );
+                  })()}
                   <span style={{ fontSize:11, background:C.bg2, border:`1px solid ${C.border}`, color:C.dim, borderRadius:20, padding:'4px 12px' }}>Encrypted · AI Vision ready</span>
                 </div>
               </div>

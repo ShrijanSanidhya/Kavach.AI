@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { MapContainer, TileLayer, CircleMarker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useHybridLocation } from '../hooks/useHybridLocation';
 
 const API = 'http://localhost:3001';
 
@@ -73,33 +74,13 @@ export default function TrackPage() {
   const [aiMsg, setAiMsg]        = useState('');
   const [phase, setPhase]        = useState('received');
   const [loadError, setLoadError] = useState(false);
-  const [userLoc, setUserLoc]    = useState(null);
-  const [locAccuracy, setLocAccuracy] = useState(null);
   const esRef  = useRef(null);
   const foundRef = useRef(false);
-  const watchRef = useRef(null);
 
-  // Real-time user GPS tracking — smooth interpolation (Uber-style)
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    let lastLat = null, lastLng = null;
-    const SMOOTH = 0.35;
-    watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-        setLocAccuracy(accuracy);
-        if (lastLat === null) { lastLat = lat; lastLng = lng; }
-        else {
-          lastLat = lastLat + (lat - lastLat) * SMOOTH;
-          lastLng = lastLng + (lng - lastLng) * SMOOTH;
-        }
-        setUserLoc({ lat: lastLat, lng: lastLng });
-      },
-      (err) => console.warn('GPS:', err.message),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-    return () => { if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current); };
-  }, []);
+  // Hybrid real-time location (GPS + network fallback)
+  const loc = useHybridLocation();
+  const userLoc    = loc ? { lat: loc.lat, lng: loc.lng } : null;
+  const locAccuracy = loc?.accuracy ?? null;
 
   const applyIncident = (found) => {
     if (!found) return;
