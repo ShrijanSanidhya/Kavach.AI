@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import DoneReport from './DoneReport';
 import { getProfile } from './emergencyProfiles';
 
-const API = 'https://kavach-ai-v1qn.onrender.com';
+const API = 'http://localhost:3001';
 const STEP = { IDLE:0, LISTENING:1, ANALYZING:2, FOLLOWUP:3, DONE:4 };
 const C = {
   bg:'#141414', bg1:'#1c1c1c', bg2:'#242424', bg3:'#2e2e2e',
@@ -26,7 +26,7 @@ function ShieldIcon({ size = 26 }) {
     </svg>
   );
 }
-const speak = (t) => { 
+const fallbackSpeak = (t) => {
   if (!window.speechSynthesis) return; 
   window.speechSynthesis.cancel(); 
   const u = new SpeechSynthesisUtterance(t); 
@@ -36,6 +36,20 @@ const speak = (t) => {
   const indianVoice = voices.find(v => v.lang.includes('IN') && v.name.includes('Female')) || voices.find(v => v.lang.includes('IN')) || voices[0];
   if (indianVoice) u.voice = indianVoice;
   window.speechSynthesis.speak(u); 
+};
+
+const speak = (t) => { 
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  try {
+    const audio = new Audio(`https://api.streamelements.com/kappa/v2/speech?voice=Aditi&text=${encodeURIComponent(t)}`);
+    audio.play().catch(e => {
+      console.error("StreamElements Audio play failed:", e);
+      fallbackSpeak(t);
+    });
+  } catch (err) {
+    console.error("StreamElements TTS failed, falling back to window.speechSynthesis:", err);
+    fallbackSpeak(t);
+  }
 };
 const toB64 = (f) => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
 

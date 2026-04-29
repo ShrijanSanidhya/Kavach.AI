@@ -10,7 +10,8 @@ import { chaosCalls } from './data/calls.js';
 
 const app = express();
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ── SSE clients ──────────────────────────────────────────────
 let sseClients = [];
@@ -64,12 +65,20 @@ app.post('/api/sos', async (req, res) => {
     // 1. Run vision analysis if image attached
     let imageAnalysis = null;
     let visualContext = '';
+    let imageFailed = false;
+
     if (imageBase64 && mimeType) {
       addLog('TRIAGE', `👁 Running vision model on attached image…`);
       broadcastState();
-      imageAnalysis = await analyzeImage(imageBase64, mimeType);
-      visualContext = imageAnalysis ? `\n\nVISUAL EVIDENCE: ${imageAnalysis}` : '';
-      addLog('TRIAGE', `👁 Vision: ${(imageAnalysis || 'no result').slice(0, 60)}…`);
+      const visionResult = await analyzeImage(imageBase64, mimeType);
+      imageAnalysis = visionResult.text;
+      if (visionResult.success) {
+        visualContext = `\n\nVISUAL EVIDENCE: ${imageAnalysis}`;
+        addLog('TRIAGE', `👁 Vision: ${(imageAnalysis).slice(0, 60)}…`);
+      } else {
+        imageFailed = true;
+        addLog('TRIAGE', `⚠ Vision analysis failed`);
+      }
     } else if (hasVideo && videoName) {
       visualContext = `\n\nVIDEO ATTACHED: "${videoName}" — treat as confirmed visual evidence`;
       addLog('TRIAGE', `🎥 Video attachment noted: ${videoName}`);
@@ -79,8 +88,16 @@ app.post('/api/sos', async (req, res) => {
     const combinedTranscript = (transcript || 'Visual emergency report') + visualContext;
     const triage = await triageEmergency(combinedTranscript);
 
-    // 3. Boost accuracy if we have visual evidence
-    if (imageBase64 || hasVideo) {
+    // 3. Adjust accuracy and follow-ups based on vision result
+    if (imageBase64 && imageFailed) {
+      triage.accuracy = Math.min(0.70, triage.accuracy); // lower accuracy so it asks follow up
+      triage.followUpQuestion = "Where are you and what kind of help do you need?";
+    } else if (imageBase64 && !imageFailed) {
+      triage.accuracy = Math.min(0.97, triage.accuracy + 0.10);
+      if (triage.accuracy < 0.85) {
+        triage.followUpQuestion = "Where are you and what kind of help do you need?";
+      }
+    } else if (hasVideo) {
       triage.accuracy = Math.min(0.97, triage.accuracy + 0.10);
     }
 

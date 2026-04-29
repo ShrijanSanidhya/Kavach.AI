@@ -1,8 +1,11 @@
 import Groq from 'groq-sdk';
 import dotenv from 'dotenv';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
 dotenv.config();
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+const genAI = new GoogleGenerativeAI('AIzaSyB0rrL0X8QpIz9iF5FANJG4Mh7vrTYwQ1s');
 
 export const triageEmergency = async (transcript) => {
   if (!groq) {
@@ -98,39 +101,26 @@ const fallback = (text) => {
 };
 
 // ── Vision Analysis ───────────────────────────────────────────
-// Uses Groq's vision-capable model to describe the emergency scene from an image.
-// Falls back gracefully if API key is missing or model is unavailable.
+// Uses Gemini to describe the emergency scene from an image.
+// Falls back gracefully if there's an error.
 export const analyzeImage = async (imageBase64, mimeType) => {
-  if (!groq) {
-    return 'Image received. Visual analysis unavailable (no API key). Treating as confirmed visual evidence.';
-  }
-
   try {
-    const response = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: 'You are an emergency dispatcher AI. Analyze this image from an emergency caller. In 2-3 concise sentences, describe: (1) what emergency is visible, (2) apparent severity and scale, (3) any identifying details like location clues, number of people, hazards. Be factual and direct.',
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${imageBase64}`,
-            },
-          },
-        ],
-      }],
-      max_tokens: 200,
-    });
-
-    return response.choices[0]?.message?.content?.trim() || null;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = 'You are an emergency dispatcher AI. Analyze this image from an emergency caller. In 2-3 concise sentences, describe: (1) what emergency is visible, (2) apparent severity and scale, (3) any identifying details like location clues, number of people, hazards. Be factual and direct.';
+    
+    const imagePart = {
+      inlineData: {
+        data: imageBase64,
+        mimeType: mimeType
+      }
+    };
+    
+    const result = await model.generateContent([prompt, imagePart]);
+    const response = await result.response;
+    return { success: true, text: response.text().trim() };
   } catch (err) {
-    console.error('Vision model error:', err.message);
-    // Graceful fallback — don't fail the whole request
-    return `Image attached by caller. Visual analysis encountered an error (${err.message?.slice(0, 60)}). Proceeding with transcript-based triage.`;
+    console.error('Gemini vision error:', err.message);
+    return { success: false, text: "Visual analysis encountered an error." };
   }
 };
 
