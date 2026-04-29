@@ -78,6 +78,11 @@ export default function SOSPage() {
 
   const startMic = () => { setListening(true); try { recRef.current?.start(); } catch {} };
   const stopMic  = () => { setListening(false); try { recRef.current?.stop(); } catch {} };
+  
+  const toggleMic = () => {
+    if (listening) stopMic();
+    else startMic();
+  };
 
   const speak = useCallback((t) => { 
     if (!t) return;
@@ -103,7 +108,8 @@ export default function SOSPage() {
 
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     try {
-      const audio = new Audio(`https://api.streamelements.com/kappa/v2/speech?voice=Aditi&text=${encodeURIComponent(t)}`);
+      // Use Google Translate TTS as primary (reliable, natural Indian accent)
+      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(t)}&tl=hi&client=tw-ob`);
       audio.onended = resumeMic;
       audio.onerror = () => fallbackSpeak(t);
       audio.play().catch(e => {
@@ -232,7 +238,7 @@ export default function SOSPage() {
                     <span style={{ position:'absolute', inset:-18, borderRadius:'50%', border:`2px solid ${C.red}`, opacity:0.6, animation:'ripple 1.6s ease-out infinite' }} />
                     <span style={{ position:'absolute', inset:-36, borderRadius:'50%', border:`1px solid ${C.red}`, opacity:0.3, animation:'ripple 1.6s ease-out 0.5s infinite' }} />
                   </>)}
-                  <button onMouseDown={startMic} onMouseUp={stopMic} onTouchStart={startMic} onTouchEnd={stopMic}
+                  <button onClick={toggleMic}
                     style={{ width:120, height:120, borderRadius:'50%',
                       background: listening ? '#1a1a1a' : '#111111',
                       border: `1px solid ${C.border}`,
@@ -241,7 +247,7 @@ export default function SOSPage() {
                     <svg width={34} height={34} viewBox="0 0 24 24" fill="none" stroke={listening ? '#ffffff' : C.red} strokeWidth={1.8}>
                       <rect x={9} y={2} width={6} height={13} rx={3}/><path d="M5 10a7 7 0 0 0 14 0"/><line x1={12} y1={19} x2={12} y2={22}/><line x1={8} y1={22} x2={16} y2={22}/>
                     </svg>
-                    <span style={{ fontSize:9, letterSpacing:'0.14em', fontWeight:700, color: listening ? '#ffffff' : C.red }}>{listening ? 'RELEASE' : 'HOLD'}</span>
+                    <span style={{ fontSize:9, letterSpacing:'0.14em', fontWeight:700, color: listening ? '#ffffff' : C.red }}>{listening ? 'STOP' : 'TAP TO SPEAK'}</span>
                   </button>
                 </div>
               </div>
