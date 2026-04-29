@@ -1,4 +1,4 @@
-2import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function AccuracyBar({ triageData }) {
   const [fill, setFill] = useState(0);
