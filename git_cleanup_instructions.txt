@@ -1,0 +1,25 @@
+# Step 1: Install git-filter-repo (MacOS)
+brew install git-filter-repo
+
+# Step 2: Navigate to your repository root
+cd /Users/shrijansanidhya/Downloads/kavach.ai2
+
+# Step 3: Create a file with the string to replace
+# We use replace-text so that the file isn't completely deleted, but the secret is wiped.
+echo "AIzaSyB0rrL0X8QpIz9iF5FANJG4Mh7vrTYwQ1s==>REDACTED" > replace.txt
+
+# Step 4: Run the filter-repo command to scrub the entire history
+git filter-repo --replace-text replace.txt --force
+
+# Step 5: Clean up the replace file
+rm replace.txt
+
+# Step 6: Verify your Git history is clean
+git log -p | grep "AIzaSy"
+
+# Step 7: Push the cleaned history to GitHub
+# WARNING: This will overwrite the remote repository history! 
+# Ensure your teammates (if any) are aware they need to re-clone or hard-reset.
+git remote add origin https://github.com/ShrijanSanidhya/Kavach.AI.git
+git push origin --force --all
+git push origin --force --tags

@@ -7,7 +7,7 @@ dotenv.config();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 const genAI = process.env.GOOGLE_API_KEY ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
 
-export const triageEmergency = async (transcript) => {
+export const triageEmergency = async (transcript, location) => {
   if (!groq) {
     console.warn('⚠ No GROQ_API_KEY — using fallback triage');
     return fallback(transcript);
@@ -28,26 +28,61 @@ Your job is to:
    - severity (low, medium, high, critical)
 3. Generate a CONFIDENCE SCORE (0 to 100) for your classification.
 
-🚨 CRITICAL RULE: HUMAN FALLBACK
+🚨 RULE 1: LOW NETWORK MODE
+If network_quality == "low" OR "critical":
+- Switch to lightweight processing
+- Prefer short text over voice/video
+- Extract only key emergency keywords
+- Do NOT wait for full input
+- Dispatch based on partial but critical information
+Set mode = "low_network", processing_strategy = "lightweight", fallback_to_text = true.
+
+📍 RULE 2: AUTO-LOCATION FALLBACK
+If gps_status == "accurate": Use GPS location directly.
+If gps_status == "weak" OR "unavailable": Activate LOCATION FALLBACK:
+Priority order:
+1. last_known_location (if recent < 5 minutes old)
+2. tower_location (nearest cell tower)
+3. mark location_confidence = "low"
+Set location_source = "gps" | "last_known" | "tower" and location_confidence = "high" | "medium" | "low".
+
+🚨 RULE 3: HUMAN FALLBACK & REQUIRED DETAILS
+You MUST ask for BOTH of these if not already provided:
+  A) Exact location or nearby landmark (especially if gps_status != 'accurate')
+  B) Number of people involved / stuck / injured
+
+If either A or B is missing:
+- Set confidence_score = 55
+- Set fallback_triggered = true
+- Set user_message to a calm, clear 2-question message asking for BOTH pieces of info.
+  Example: "Help is being dispatched. To reach you faster — please tell us: 1) Your exact location or a nearby landmark, and 2) How many people are stuck or injured?"
+
 If confidence_score < 80:
-- IMMEDIATELY trigger HUMAN FALLBACK MODE.
-In HUMAN FALLBACK MODE:
 1. Do NOT delay response.
 2. Dispatch a SAFE DEFAULT response (nearest ambulance/police).
 3. Simultaneously escalate to a human dispatcher.
 4. Mark case as "REQUIRES HUMAN VALIDATION".
 
-If confidence_score >= 80:
-- Proceed with full autonomous dispatch.
+⚡ RULE 4: SAFETY-FIRST DISPATCH
+- NEVER delay dispatch due to poor network or missing location.
+- If uncertainty exists: Dispatch nearest available unit, Mark case for human review.
 
 📤 OUTPUT FORMAT (STRICT JSON):
 {
   "emergency_type": "",
   "severity": "",
-  "location": "",
   "confidence_score": 0,
   "dispatch_units": [],
-  "fallback_triggered": true/false,
+  "mode": "normal" | "low_network",
+  "network_quality": "",
+  "gps_status": "",
+  "location_source": "",
+  "location_confidence": "",
+  "fallback_to_text": true | false,
+  "processing_strategy": "full" | "lightweight",
+  "dispatch_priority": "confirmed" | "safe_default",
+  "fallback_triggered": true | false,
+  "resolved_location": { "lat": 0, "lng": 0 },
   "action": "",
   "user_message": "",
   "survival_instructions": ""
@@ -56,20 +91,31 @@ If confidence_score >= 80:
 🧾 ACTION RULES:
 If fallback_triggered = true:
 - action = "Dispatch default unit + Notify human dispatcher"
-- user_message = "We are connecting you to an emergency operator while help is being dispatched."
-
-If fallback_triggered = false:
-- action = "Autonomous dispatch"
-- user_message = "Help is on the way."
+- user_message = "Help is being dispatched to your area. To reach you faster — please tell us: 1) Your exact location or a nearby landmark, and 2) How many people are stuck or injured?"
+If LOW NETWORK MODE and fallback_triggered = true:
+- append: " Network is weak — please keep your message short."
+If LOCATION FALLBACK is used and fallback_triggered = false:
+- append to user_message: " Using approximate location to dispatch help."
+If fallback_triggered = false (confident dispatch):
+- user_message = "Help is on the way to your location."
 
 🧠 IMPORTANT:
-- NEVER return empty fields. Extract location if possible, else "Unknown".
-- ALWAYS prioritize user safety over accuracy.
-- When unsure -> fallback.
-- Be fast, decisive, and safe.`
+- ALWAYS provide 1-2 brief scenario-specific safety instructions in "survival_instructions".
+- NEVER return empty fields.
+- ALWAYS return a usable location (even if approximate).
+- NEVER block dispatch due to missing data.
+- PRIORITIZE speed over precision in emergencies.
+- HANDLE uncertainty safely.`
       }, {
         role: 'user',
-        content: `Analyze this emergency input:\n"${transcript}"`
+        content: `INPUT PARAMETERS:
+- network_quality: "${Math.random() > 0.8 ? 'low' : 'high'}"
+- gps_status: "${location ? 'accurate' : 'unavailable'}"
+- last_known_location: ${location ? JSON.stringify(location) : 'null'}
+- tower_location: null
+- user_input: "${transcript}"
+
+Analyze this emergency input and return STRICT JSON.`
       }]
     });
 
@@ -78,7 +124,7 @@ If fallback_triggered = false:
     // Map to the internal application format
     let resourceNeeded = "police";
     if (parsed.dispatch_units && parsed.dispatch_units.length > 0) {
-      const units = parsed.dispatch_units.map(u => u.toLowerCase());
+      const units = parsed.dispatch_units.map(u => String(u).toLowerCase());
       if (units.some(u => u.includes('fire'))) resourceNeeded = 'fire';
       else if (units.some(u => u.includes('med') || u.includes('amb'))) resourceNeeded = 'ambulance';
       else if (units.some(u => u.includes('swat'))) resourceNeeded = 'swat';
@@ -89,13 +135,20 @@ If fallback_triggered = false:
       else if ((parsed.emergency_type || '').toLowerCase().includes('med')) resourceNeeded = 'ambulance';
     }
     
+    const locArr = parsed.resolved_location && typeof parsed.resolved_location.lat === 'number' 
+      ? [parsed.resolved_location.lat, parsed.resolved_location.lng] 
+      : null;
+
+    const spokenMessage = [parsed.user_message, parsed.survival_instructions].filter(Boolean).join(" ");
+
     return {
       emergencyType: parsed.emergency_type || "Emergency",
       severity: (parsed.severity || "MEDIUM").toUpperCase(),
-      locationName: parsed.location || "Location pending",
+      locationName: parsed.location_source === 'gps' ? "GPS Location" : parsed.location_source === 'tower' ? "Cell Tower Approx" : "Unknown",
+      location: locArr,
       keywords: parsed.dispatch_units || [],
       accuracy: (parsed.confidence_score || 50) / 100,
-      followUpQuestion: parsed.user_message || null,
+      followUpQuestion: spokenMessage || null,
       reasoning: `${parsed.action || ''} | ${parsed.survival_instructions || ''}`,
       resourceNeeded: resourceNeeded,
       fallback_triggered: parsed.fallback_triggered || false

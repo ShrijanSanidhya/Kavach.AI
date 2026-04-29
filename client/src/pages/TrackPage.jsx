@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const API = 'http://localhost:3001';
@@ -57,6 +57,13 @@ const getDecisions = (type) => {
 
 const sevColor = (s) => s === 'HIGH' ? C.red : s === 'MEDIUM' ? C.red2 : 'C.red2';
 
+// Smoothly re-center map when incident location first arrives
+function MapRecenter({ center }) {
+  const map = useMap();
+  useEffect(() => { if (center) map.setView(center, 15, { animate: true }); }, [center]);
+  return null;
+}
+
 export default function TrackPage() {
   const { incidentId } = useParams();
   const [incident, setIncident]   = useState(null);
@@ -64,10 +71,35 @@ export default function TrackPage() {
   const [revealIdx, setRevealIdx] = useState(0);
   const [etaTick, setEtaTick]    = useState(0);
   const [aiMsg, setAiMsg]        = useState('');
-  const [phase, setPhase]        = useState('received'); // received → triaging → dispatched
+  const [phase, setPhase]        = useState('received');
   const [loadError, setLoadError] = useState(false);
-  const esRef = useRef(null);
+  const [userLoc, setUserLoc]    = useState(null);
+  const [locAccuracy, setLocAccuracy] = useState(null);
+  const esRef  = useRef(null);
   const foundRef = useRef(false);
+  const watchRef = useRef(null);
+
+  // Real-time user GPS tracking — smooth interpolation (Uber-style)
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    let lastLat = null, lastLng = null;
+    const SMOOTH = 0.35;
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+        setLocAccuracy(accuracy);
+        if (lastLat === null) { lastLat = lat; lastLng = lng; }
+        else {
+          lastLat = lastLat + (lat - lastLat) * SMOOTH;
+          lastLng = lastLng + (lng - lastLng) * SMOOTH;
+        }
+        setUserLoc({ lat: lastLat, lng: lastLng });
+      },
+      (err) => console.warn('GPS:', err.message),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+    return () => { if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current); };
+  }, []);
 
   const applyIncident = (found) => {
     if (!found) return;
@@ -273,16 +305,36 @@ export default function TrackPage() {
           </div>
 
           {/* Map */}
-          <div style={{ flex:1, minHeight:220, borderRadius:12, overflow:'hidden', border:`1px solid ${C.border}` }}>
+          <div style={{ flex:1, minHeight:240, borderRadius:12, overflow:'hidden', border:`1px solid ${C.border}`, position:'relative' }}>
             {incident?.location ? (
-              <MapContainer center={incident.location} zoom={14} style={{ height:'100%', minHeight:220, width:'100%' }} zoomControl={false}>
+              <MapContainer center={incident.location} zoom={15} style={{ height:'100%', minHeight:240, width:'100%' }} zoomControl={false}>
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="CARTO" />
+                <MapRecenter center={incident.location} />
+                {/* Incident location — pulsing rings */}
                 <CircleMarker center={incident.location} radius={14} pathOptions={{ color:sevCol, fillColor:sevCol, fillOpacity:0.5, weight:2 }} />
                 <CircleMarker center={incident.location} radius={28} pathOptions={{ color:sevCol, fillColor:'transparent', weight:1, opacity:0.3 }} />
+                {/* User live location — blue dot */}
+                {userLoc && (
+                  <>
+                    <CircleMarker center={[userLoc.lat, userLoc.lng]} radius={8} pathOptions={{ color:'#1976d2', fillColor:'#42a5f5', fillOpacity:0.9, weight:2 }} />
+                    <CircleMarker center={[userLoc.lat, userLoc.lng]} radius={20} pathOptions={{ color:'#1976d2', fillColor:'transparent', weight:1, opacity:0.4 }} />
+                  </>
+                )}
               </MapContainer>
             ) : (
-              <div style={{ height:220, background:C.bg2, display:'flex', alignItems:'center', justifyContent:'center', color:C.dim, fontSize:13 }}>Acquiring GPS coordinates…</div>
+              <div style={{ height:240, background:C.bg2, display:'flex', alignItems:'center', justifyContent:'center', color:C.dim, fontSize:13 }}>Acquiring GPS coordinates…</div>
             )}
+            {/* Map overlay badges */}
+            <div style={{ position:'absolute', bottom:10, left:10, zIndex:1000, display:'flex', flexDirection:'column', gap:5 }}>
+              <span style={{ background:'rgba(20,20,20,0.85)', border:`1px solid ${sevCol}44`, borderRadius:6, padding:'3px 10px', fontSize:10, color:sevCol, fontWeight:700, backdropFilter:'blur(4px)' }}>
+                🔴 EMERGENCY
+              </span>
+              {userLoc && (
+                <span style={{ background:'rgba(20,20,20,0.85)', border:`1px solid #1976d244`, borderRadius:6, padding:'3px 10px', fontSize:10, color:'#42a5f5', fontWeight:700, backdropFilter:'blur(4px)' }}>
+                  🔵 YOU · {locAccuracy <= 20 ? 'HIGH' : locAccuracy <= 100 ? 'MED' : 'LOW'} ±{Math.round(locAccuracy||0)}m
+                </span>
+              )}
+            </div>
           </div>
 
           {/* ETA Panel */}

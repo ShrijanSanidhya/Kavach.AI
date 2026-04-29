@@ -52,7 +52,7 @@ app.get('/api/state', (req, res) => {
 
 // SOS — single call triage + dispatch
 app.post('/api/sos', async (req, res) => {
-  const { transcript, imageBase64, mimeType, hasVideo, videoName } = req.body;
+  const { transcript, imageBase64, mimeType, hasVideo, videoName, location } = req.body;
   if (!transcript?.trim() && !imageBase64 && !hasVideo) {
     return res.status(400).json({ error: 'No input provided' });
   }
@@ -86,7 +86,7 @@ app.post('/api/sos', async (req, res) => {
 
     // 2. Triage with enriched context
     const combinedTranscript = (transcript || 'Visual emergency report') + visualContext;
-    const triage = await triageEmergency(combinedTranscript);
+    const triage = await triageEmergency(combinedTranscript, location);
 
     // 3. Adjust accuracy based on vision result (AI handles its own user_messages now)
     if (imageBase64 && imageFailed) {
@@ -100,7 +100,7 @@ app.post('/api/sos', async (req, res) => {
     addLog('TRIAGE', `✓ ${triage.emergencyType} | Sev: ${triage.severity} | Acc: ${Math.round(triage.accuracy * 100)}%`);
 
     if (triage.accuracy >= 0.85) {
-      const dispatch = processDispatch(triage, transcript || 'Visual report');
+      const dispatch = processDispatch(triage, transcript || 'Visual report', triage.location);
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       store.stats.aiResponseTime = `${elapsed}s`;
       addLog('DISPATCH', `🚨 ${dispatch.status === 'merged' ? 'Duplicate merged' : `Dispatched ${dispatch.incident?.assignedResource || 'unit'}`}`);
@@ -119,11 +119,11 @@ app.post('/api/sos', async (req, res) => {
 
 // Follow-up answer
 app.post('/api/followup', async (req, res) => {
-  const { transcript } = req.body;
+  const { transcript, location } = req.body;
   if (!transcript) return res.status(400).json({ error: 'Missing' });
 
   addLog('TRIAGE', `💬 Follow-up received: "${transcript.slice(0, 40)}…"`);
-  const triage = await triageEmergency(transcript);
+  const triage = await triageEmergency(transcript, location);
   triage.accuracy = Math.min(1, triage.accuracy + 0.2); // boost from clarification
 
   const dispatch = processDispatch(triage, transcript);

@@ -26,31 +26,7 @@ function ShieldIcon({ size = 26 }) {
     </svg>
   );
 }
-const fallbackSpeak = (t) => {
-  if (!window.speechSynthesis) return; 
-  window.speechSynthesis.cancel(); 
-  const u = new SpeechSynthesisUtterance(t); 
-  u.lang = 'en-IN'; 
-  u.rate = 0.95; 
-  const voices = window.speechSynthesis.getVoices();
-  const indianVoice = voices.find(v => v.lang.includes('IN') && v.name.includes('Female')) || voices.find(v => v.lang.includes('IN')) || voices[0];
-  if (indianVoice) u.voice = indianVoice;
-  window.speechSynthesis.speak(u); 
-};
 
-const speak = (t) => { 
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-  try {
-    const audio = new Audio(`https://api.streamelements.com/kappa/v2/speech?voice=Aditi&text=${encodeURIComponent(t)}`);
-    audio.play().catch(e => {
-      console.error("StreamElements Audio play failed:", e);
-      fallbackSpeak(t);
-    });
-  } catch (err) {
-    console.error("StreamElements TTS failed, falling back to window.speechSynthesis:", err);
-    fallbackSpeak(t);
-  }
-};
 const toB64 = (f) => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
 
 export default function SOSPage() {
@@ -66,12 +42,40 @@ export default function SOSPage() {
   const [elapsed,setElapsed]     = useState(0);
   const [media,setMedia] = useState(null);
   const [vision,setVision] = useState('');
+  const [realLocation,setRealLocation] = useState(null);
+  const [locAccuracy,setLocAccuracy]   = useState(null);
+  const watchRef = useRef(null);
   const recRef   = useRef(null);
   const timerRef = useRef(null);
   const fileRef  = useRef(null);
 
   const stepRef = useRef(STEP.IDLE);
   useEffect(() => { stepRef.current = step; }, [step]);
+
+  // Real-time GPS watchPosition — updates whenever device moves
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    let lastLat = null, lastLng = null;
+    const SMOOTH = 0.4; // lerp factor — prevents jitter
+
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+        setLocAccuracy(accuracy);
+        if (lastLat === null) {
+          lastLat = lat; lastLng = lng;
+        } else {
+          // Smooth interpolation — Uber-style gradual updates
+          lastLat = lastLat + (lat - lastLat) * SMOOTH;
+          lastLng = lastLng + (lng - lastLng) * SMOOTH;
+        }
+        setRealLocation({ lat: lastLat, lng: lastLng, accuracy, ts: Date.now() });
+      },
+      (err) => console.warn('GPS:', err.message),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+    return () => { if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current); };
+  }, []);
 
   useEffect(() => {
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
@@ -98,6 +102,42 @@ export default function SOSPage() {
   const startMic = () => { setListening(true); try { recRef.current?.start(); } catch {} };
   const stopMic  = () => { setListening(false); try { recRef.current?.stop(); } catch {} };
 
+  const speak = useCallback((t) => { 
+    if (!t) return;
+    stopMic(); // Pause mic so it doesn't record the AI's own voice
+    
+    const resumeMic = () => {
+      if (stepRef.current === STEP.IDLE || stepRef.current === STEP.FOLLOWUP) {
+        startMic();
+      }
+    };
+
+    const fallbackSpeak = (text) => {
+      if (!window.speechSynthesis) { resumeMic(); return; }
+      window.speechSynthesis.cancel(); 
+      const u = new SpeechSynthesisUtterance(text); 
+      u.lang = 'en-IN'; u.rate = 0.95; 
+      const voices = window.speechSynthesis.getVoices();
+      u.voice = voices.find(v => v.lang.includes('IN') && v.name.includes('Female')) || voices.find(v => v.lang.includes('IN')) || voices[0];
+      u.onend = resumeMic;
+      u.onerror = resumeMic;
+      window.speechSynthesis.speak(u); 
+    };
+
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    try {
+      const audio = new Audio(`https://api.streamelements.com/kappa/v2/speech?voice=Aditi&text=${encodeURIComponent(t)}`);
+      audio.onended = resumeMic;
+      audio.onerror = () => fallbackSpeak(t);
+      audio.play().catch(e => {
+        console.error("Audio play failed:", e);
+        fallbackSpeak(t);
+      });
+    } catch (err) {
+      fallbackSpeak(t);
+    }
+  }, []);
+
   const onFile = (e) => {
     const f = e.target.files?.[0]; if (!f) return;
     const isImg = f.type.startsWith('image/'), isVid = f.type.startsWith('video/');
@@ -114,7 +154,7 @@ export default function SOSPage() {
       let b64=null, mime=null;
       if (media?.type==='image') { b64=await toB64(media.file); mime=media.mime; }
       const r = await fetch(`${API}/api/sos`, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ transcript:t, imageBase64:b64, mimeType:mime, hasVideo:media?.type==='video', videoName:media?.name }) });
+        body: JSON.stringify({ transcript:t, imageBase64:b64, mimeType:mime, hasVideo:media?.type==='video', videoName:media?.name, location:realLocation }) });
       clearInterval(timerRef.current);
       const d = await r.json(); if (!r.ok) throw new Error(d.error);
       if (d.imageAnalysis) setVision(d.imageAnalysis);
@@ -124,7 +164,7 @@ export default function SOSPage() {
         setIncidentId(d.dispatch.incident.id);
         setStep(STEP.DONE);
         const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
-        speak(`Aap safe jagah pe rahein. Help pahunch rahi hai. Please listen carefully: ${tips}`);
+        speak(d.triage?.followUpQuestion || `Aap safe jagah pe rahein. Help pahunch rahi hai. Please listen carefully: ${tips}`);
         setTimeout(() => navigate(`/track/${d.dispatch.incident.id}`), 6000);
       } else { setStep(STEP.FOLLOWUP); if(d.triage?.followUpQuestion) speak(d.triage.followUpQuestion); }
     } catch(err) { clearInterval(timerRef.current); console.error(err); setStep(STEP.IDLE); }
@@ -134,10 +174,14 @@ export default function SOSPage() {
     if (!followup.trim()) return;
     setStep(STEP.ANALYZING);
     try {
-      const r = await fetch(`${API}/api/followup`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ transcript:text+' '+followup }) });
-      const d = await r.json(); setTriage(d.triage); setDispatch(d.dispatch); setStep(STEP.DONE); 
+      const r = await fetch(`${API}/api/followup`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ transcript:text+' '+followup, location:realLocation }) });
+      const d = await r.json(); 
+      setTriage(d.triage); 
+      setDispatch(d.dispatch); 
+      if (d.dispatch?.incident) setIncidentId(d.dispatch.incident.id);
+      setStep(STEP.DONE); 
       const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
-      speak(`Help aa rahi hai. Aap safe rahein. Please listen carefully: ${tips}`);
+      speak(d.triage?.followUpQuestion || `Help aa rahi hai. Aap safe rahein. Please listen carefully: ${tips}`);
     } catch(err) { console.error(err); setStep(STEP.FOLLOWUP); }
   }, [text, followup]);
 
@@ -188,6 +232,13 @@ export default function SOSPage() {
                   Need Help<span style={{ color: C.red }}>?</span>
                 </h1>
                 <p style={{ color:C.muted, fontSize:15, lineHeight:1.65 }}>Speak your emergency. Our AI triage agent<br/>dispatches help and stays with you.</p>
+                <div style={{ display:'flex', justifyContent:'center', gap:8, marginTop:14 }}>
+                  <span style={{ fontSize:11, background:C.bg2, border:`1px solid ${realLocation ? (locAccuracy <= 20 ? '#388e3c44' : '#f57c0044') : C.border}`, color: realLocation ? (locAccuracy <= 20 ? '#4caf50' : '#f57c00') : C.dim, borderRadius:20, padding:'4px 12px', fontWeight:600, letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:5 }}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background: realLocation ? (locAccuracy <= 20 ? '#4caf50' : '#f57c00') : C.dim, animation: realLocation ? 'pulse 2s infinite' : 'none' }} />
+                    {realLocation ? `GPS ${locAccuracy <= 20 ? 'HIGH' : locAccuracy <= 100 ? 'MED' : 'LOW'} ±${Math.round(locAccuracy||0)}m` : 'Acquiring GPS…'}
+                  </span>
+                  <span style={{ fontSize:11, background:C.bg2, border:`1px solid ${C.border}`, color:C.dim, borderRadius:20, padding:'4px 12px' }}>Encrypted · AI Vision ready</span>
+                </div>
               </div>
 
               <div style={{ display:'flex', justifyContent:'center', marginBottom:32 }}>
@@ -267,30 +318,34 @@ export default function SOSPage() {
           {/* FOLLOWUP */}
           {step===STEP.FOLLOWUP && (<>
             <TriageCard triage={triage} bar={bar} barCol={barCol} vision={vision} />
-            <div style={{ background:C.bg1, border:`1px solid ${C.border}`, borderRadius:12, padding:20, marginTop:14 }}>
-              <div style={{ display:'flex', alignItems:'flex-start', gap:12, marginBottom:14 }}>
-                <div style={{ width:34, height:34, borderRadius:'50%', background:C.bg3, border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <ShieldIcon size={16} />
+            <div style={{ background:C.bg1, border:`1px solid ${C.red}`, borderRadius:12, padding:24, marginTop:14, boxShadow:`0 0 20px ${C.redGlow}`, animation:'fadeIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+              <div style={{ display:'flex', alignItems:'flex-start', gap:14, marginBottom:18 }}>
+                <div style={{ width:40, height:40, borderRadius:'50%', background:C.bg2, border:`1px solid ${C.red}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, animation:'pulse 2s infinite', boxShadow:`0 0 10px ${C.redGlow}` }}>
+                  <ShieldIcon size={20} />
                 </div>
-                <div>
-                  <p style={{ fontSize:10, color:C.red, marginBottom:4, letterSpacing:'0.12em', fontWeight:700 }}>KAVACH AI</p>
-                  <p style={{ fontSize:15, lineHeight:1.55 }}>{triage?.followUpQuestion}</p>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize:11, color:C.red, marginBottom:6, letterSpacing:'0.14em', fontWeight:800, display:'flex', alignItems:'center', gap:6 }}>
+                    KAVACH AI <span style={{ width:6, height:6, borderRadius:'50%', background:C.red, animation:'pulse 1s infinite' }} />
+                  </p>
+                  <p style={{ fontSize:16, lineHeight:1.6, color:'#fff', fontWeight:500, letterSpacing:'0.01em' }}>{triage?.followUpQuestion}</p>
                 </div>
               </div>
-              <textarea autoFocus value={followup} onChange={e=>setFollowup(e.target.value)}
-                onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submitFU(); } }}
-                placeholder="Your answer…" rows={2}
-                style={{ width:'100%', background:'transparent', border:'none', outline:'none', color:C.text, fontSize:14, resize:'none', fontFamily:'inherit', borderTop:`1px solid ${C.border}`, paddingTop:12 }} />
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
+              <div style={{ background:C.bg2, borderRadius:8, border:`1px solid ${C.border}`, padding:'12px 16px', position:'relative' }}>
+                <textarea autoFocus value={followup} onChange={e=>setFollowup(e.target.value)}
+                  onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); submitFU(); } }}
+                  placeholder="Type your response here..." rows={2}
+                  style={{ width:'100%', background:'transparent', border:'none', outline:'none', color:C.text, fontSize:15, resize:'none', fontFamily:'inherit' }} />
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:16 }}>
                 <button onMouseDown={startMic} onMouseUp={stopMic} onTouchStart={startMic} onTouchEnd={stopMic}
-                  style={{ background: listening ? '#1a1a1a' : 'transparent', border:`1px solid ${listening ? C.red : C.border}`, color: listening ? C.red : C.muted, borderRadius:8, padding:'8px 14px', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6, transition:'all 0.2s' }}>
-                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  style={{ background: listening ? 'rgba(211,47,47,0.1)' : 'transparent', border:`1px solid ${listening ? C.red : C.border}`, color: listening ? C.red : C.muted, borderRadius:8, padding:'10px 18px', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:8, transition:'all 0.2s', fontWeight:600, letterSpacing:'0.05em' }}>
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <rect x={9} y={2} width={6} height={13} rx={3}/><path d="M5 10a7 7 0 0 0 14 0"/><line x1={12} y1={19} x2={12} y2={22}/><line x1={8} y1={22} x2={16} y2={22}/>
                   </svg>
-                  {listening ? 'LISTENING...' : 'HOLD TO SPEAK'}
+                  {listening ? 'LISTENING (RELEASE TO STOP)' : 'HOLD TO SPEAK'}
                 </button>
                 <button onClick={submitFU} disabled={!followup.trim()}
-                  style={{ background: followup.trim() ? C.red : C.bg3, color: followup.trim() ? '#fff' : C.dim, border:'none', borderRadius:8, padding:'10px 22px', fontWeight:800, fontSize:13, letterSpacing:'0.08em', cursor: followup.trim() ? 'pointer' : 'not-allowed', transition:'all 0.2s' }}>
+                  style={{ background: followup.trim() ? C.red : C.bg3, color: followup.trim() ? '#fff' : C.dim, border:'none', borderRadius:8, padding:'12px 28px', fontWeight:800, fontSize:13, letterSpacing:'0.1em', cursor: followup.trim() ? 'pointer' : 'not-allowed', transition:'all 0.2s', boxShadow: followup.trim() ? `0 4px 15px ${C.redGlow}` : 'none' }}>
                   SEND
                 </button>
               </div>
