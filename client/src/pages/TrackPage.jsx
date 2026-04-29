@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, CircleMarker, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { GoogleMap, useLoadScript, OverlayView, Circle } from '@react-google-maps/api';
 import { useHybridLocation } from '../hooks/useHybridLocation';
 
 const API = 'http://localhost:3001';
@@ -49,21 +48,29 @@ const POLICE_DECISIONS = [
   { id:'p3', label:'Notify Control Room', icon:'📡', detail:'District HQ alerted via ERSS', color:C.red },
 ];
 
-const getDecisions = (type) => {
-  const t = (type || '').toLowerCase();
-  if (t.includes('fire') || t.includes('explosion')) return FIRE_DECISIONS;
-  if (t.includes('medical') || t.includes('accident')) return MEDICAL_DECISIONS;
-  return POLICE_DECISIONS;
-};
-
 const sevColor = (s) => s === 'HIGH' ? C.red : s === 'MEDIUM' ? C.red2 : 'C.red2';
 
-// Smoothly re-center map when incident location first arrives
-function MapRecenter({ center }) {
-  const map = useMap();
-  useEffect(() => { if (center) map.setView(center, 15, { animate: true }); }, [center]);
-  return null;
-}
+// Dark night-mode style for Google Maps matching KAVACH aesthetic
+const DARK_MAP_STYLE = [
+  { elementType:'geometry', stylers:[{color:'#1a1a1a'}] },
+  { elementType:'labels.text.stroke', stylers:[{color:'#1a1a1a'}] },
+  { elementType:'labels.text.fill', stylers:[{color:'#555'}] },
+  { featureType:'road', elementType:'geometry', stylers:[{color:'#2c2c2c'}] },
+  { featureType:'road', elementType:'labels.text.fill', stylers:[{color:'#444'}] },
+  { featureType:'road.highway', elementType:'geometry', stylers:[{color:'#363636'}] },
+  { featureType:'water', elementType:'geometry', stylers:[{color:'#0a0a0a'}] },
+  { featureType:'poi', elementType:'all', stylers:[{visibility:'off'}] },
+  { featureType:'transit', elementType:'all', stylers:[{visibility:'off'}] },
+  { featureType:'administrative.locality', elementType:'labels.text.fill', stylers:[{color:'#666'}] },
+];
+
+const MAP_OPTIONS = {
+  styles: DARK_MAP_STYLE,
+  disableDefaultUI: true,
+  zoomControl: false,
+  gestureHandling: 'greedy',
+  clickableIcons: false,
+};
 
 export default function TrackPage() {
   const { incidentId } = useParams();
@@ -74,13 +81,36 @@ export default function TrackPage() {
   const [aiMsg, setAiMsg]        = useState('');
   const [phase, setPhase]        = useState('received');
   const [loadError, setLoadError] = useState(false);
-  const esRef  = useRef(null);
+  const esRef    = useRef(null);
   const foundRef = useRef(false);
+  const mapRef   = useRef(null);
+
+  // Google Maps loader
+  const { isLoaded } = useLoadScript({
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+  });
+
+  const getDecisions = (type) => {
+    const t = (type || '').toLowerCase();
+    if (t.includes('fire') || t.includes('explosion')) return FIRE_DECISIONS;
+    if (t.includes('medical') || t.includes('accident')) return MEDICAL_DECISIONS;
+    return POLICE_DECISIONS;
+  };
 
   // Hybrid real-time location (GPS + network fallback)
   const loc = useHybridLocation();
   const userLoc    = loc ? { lat: loc.lat, lng: loc.lng } : null;
   const locAccuracy = loc?.accuracy ?? null;
+
+  const onMapLoad = (map) => { mapRef.current = map; };
+
+  // Pan map to incident when it first loads
+  useEffect(() => {
+    if (mapRef.current && incident?.location) {
+      mapRef.current.panTo({ lat: incident.location[0], lng: incident.location[1] });
+      mapRef.current.setZoom(16);
+    }
+  }, [incident?.location]);
 
   const applyIncident = (found) => {
     if (!found) return;
@@ -285,34 +315,75 @@ export default function TrackPage() {
             ))}
           </div>
 
-          {/* Map */}
-          <div style={{ flex:1, minHeight:240, borderRadius:12, overflow:'hidden', border:`1px solid ${C.border}`, position:'relative' }}>
-            {incident?.location ? (
-              <MapContainer center={incident.location} zoom={15} style={{ height:'100%', minHeight:240, width:'100%' }} zoomControl={false}>
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="CARTO" />
-                <MapRecenter center={incident.location} />
-                {/* Incident location — pulsing rings */}
-                <CircleMarker center={incident.location} radius={14} pathOptions={{ color:sevCol, fillColor:sevCol, fillOpacity:0.5, weight:2 }} />
-                <CircleMarker center={incident.location} radius={28} pathOptions={{ color:sevCol, fillColor:'transparent', weight:1, opacity:0.3 }} />
+          {/* Google Map */}
+          <div style={{ flex:1, minHeight:260, borderRadius:12, overflow:'hidden', border:`1px solid ${C.border}`, position:'relative' }}>
+            {!isLoaded && (
+              <div style={{ height:260, background:C.bg2, display:'flex', alignItems:'center', justifyContent:'center', color:C.dim, fontSize:13, gap:10 }}>
+                <div style={{ width:20, height:20, borderRadius:'50%', border:`2px solid ${C.red}`, borderTopColor:'transparent', animation:'spin 0.8s linear infinite' }} />
+                Loading map…
+              </div>
+            )}
+            {isLoaded && incident?.location && (
+              <GoogleMap
+                mapContainerStyle={{ height:'100%', minHeight:260, width:'100%' }}
+                center={{ lat: incident.location[0], lng: incident.location[1] }}
+                zoom={16}
+                options={MAP_OPTIONS}
+                onLoad={onMapLoad}
+              >
+                {/* Incident marker — red pulsing rings */}
+                <Circle
+                  center={{ lat: incident.location[0], lng: incident.location[1] }}
+                  radius={40}
+                  options={{ strokeColor: sevCol, strokeOpacity: 0.8, strokeWeight: 2, fillColor: sevCol, fillOpacity: 0.25 }}
+                />
+                <Circle
+                  center={{ lat: incident.location[0], lng: incident.location[1] }}
+                  radius={80}
+                  options={{ strokeColor: sevCol, strokeOpacity: 0.3, strokeWeight: 1, fillColor: 'transparent', fillOpacity: 0 }}
+                />
+                <OverlayView
+                  position={{ lat: incident.location[0], lng: incident.location[1] }}
+                  mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                >
+                  <div style={{ transform:'translate(-50%,-50%)', position:'relative' }}>
+                    <div style={{ width:20, height:20, borderRadius:'50%', background:sevCol, boxShadow:`0 0 16px ${sevCol}, 0 0 32px ${sevCol}66`, border:'2px solid #fff' }} />
+                    <div style={{ position:'absolute', top:-28, left:'50%', transform:'translateX(-50%)', background:'rgba(20,20,20,0.9)', border:`1px solid ${sevCol}66`, borderRadius:4, padding:'2px 8px', fontSize:9, color:sevCol, fontWeight:800, whiteSpace:'nowrap', backdropFilter:'blur(4px)' }}>
+                      🚨 EMERGENCY
+                    </div>
+                  </div>
+                </OverlayView>
                 {/* User live location — blue dot */}
                 {userLoc && (
                   <>
-                    <CircleMarker center={[userLoc.lat, userLoc.lng]} radius={8} pathOptions={{ color:'#1976d2', fillColor:'#42a5f5', fillOpacity:0.9, weight:2 }} />
-                    <CircleMarker center={[userLoc.lat, userLoc.lng]} radius={20} pathOptions={{ color:'#1976d2', fillColor:'transparent', weight:1, opacity:0.4 }} />
+                    <Circle
+                      center={userLoc}
+                      radius={locAccuracy || 50}
+                      options={{ strokeColor:'#1976d2', strokeOpacity:0.4, strokeWeight:1, fillColor:'#42a5f5', fillOpacity:0.1 }}
+                    />
+                    <OverlayView
+                      position={userLoc}
+                      mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                    >
+                      <div style={{ transform:'translate(-50%,-50%)' }}>
+                        <div style={{ width:14, height:14, borderRadius:'50%', background:'#42a5f5', boxShadow:'0 0 10px #1976d2, 0 0 20px #1976d266', border:'2px solid #fff' }} />
+                      </div>
+                    </OverlayView>
                   </>
                 )}
-              </MapContainer>
-            ) : (
-              <div style={{ height:240, background:C.bg2, display:'flex', alignItems:'center', justifyContent:'center', color:C.dim, fontSize:13 }}>Acquiring GPS coordinates…</div>
+              </GoogleMap>
             )}
-            {/* Map overlay badges */}
-            <div style={{ position:'absolute', bottom:10, left:10, zIndex:1000, display:'flex', flexDirection:'column', gap:5 }}>
-              <span style={{ background:'rgba(20,20,20,0.85)', border:`1px solid ${sevCol}44`, borderRadius:6, padding:'3px 10px', fontSize:10, color:sevCol, fontWeight:700, backdropFilter:'blur(4px)' }}>
-                🔴 EMERGENCY
-              </span>
+            {isLoaded && !incident?.location && (
+              <div style={{ height:260, background:C.bg2, display:'flex', alignItems:'center', justifyContent:'center', color:C.dim, fontSize:13 }}>Acquiring GPS coordinates…</div>
+            )}
+            {/* Map legend badges */}
+            <div style={{ position:'absolute', bottom:10, left:10, zIndex:10, display:'flex', flexDirection:'column', gap:5, pointerEvents:'none' }}>
+              {incident?.location && (
+                <span style={{ background:'rgba(12,12,12,0.88)', border:`1px solid ${sevCol}44`, borderRadius:6, padding:'4px 10px', fontSize:10, color:sevCol, fontWeight:700, backdropFilter:'blur(4px)' }}>🔴 EMERGENCY</span>
+              )}
               {userLoc && (
-                <span style={{ background:'rgba(20,20,20,0.85)', border:`1px solid #1976d244`, borderRadius:6, padding:'3px 10px', fontSize:10, color:'#42a5f5', fontWeight:700, backdropFilter:'blur(4px)' }}>
-                  🔵 YOU · {locAccuracy <= 20 ? 'HIGH' : locAccuracy <= 100 ? 'MED' : 'LOW'} ±{Math.round(locAccuracy||0)}m
+                <span style={{ background:'rgba(12,12,12,0.88)', border:`1px solid #1976d244`, borderRadius:6, padding:'4px 10px', fontSize:10, color:'#42a5f5', fontWeight:700, backdropFilter:'blur(4px)' }}>
+                  🔵 YOU · {(locAccuracy||0) <= 30 ? 'HIGH' : (locAccuracy||0) <= 80 ? 'MED' : 'LOW'} ±{Math.round(locAccuracy||0)}m
                 </span>
               )}
             </div>
@@ -338,8 +409,7 @@ export default function TrackPage() {
         @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
         @keyframes spin   { to{transform:rotate(360deg)} }
-        .leaflet-container { background:#141414 !important; }
-        .leaflet-control-zoom { display:none; }
+        .gm-style { background: #141414 !important; }
       `}</style>
     </div>
   );
