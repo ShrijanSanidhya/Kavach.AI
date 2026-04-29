@@ -88,15 +88,11 @@ app.post('/api/sos', async (req, res) => {
     const combinedTranscript = (transcript || 'Visual emergency report') + visualContext;
     const triage = await triageEmergency(combinedTranscript);
 
-    // 3. Adjust accuracy and follow-ups based on vision result
+    // 3. Adjust accuracy based on vision result (AI handles its own user_messages now)
     if (imageBase64 && imageFailed) {
-      triage.accuracy = Math.min(0.70, triage.accuracy); // lower accuracy so it asks follow up
-      triage.followUpQuestion = "Where are you and what kind of help do you need?";
+      triage.accuracy = Math.min(0.70, triage.accuracy); // lower accuracy
     } else if (imageBase64 && !imageFailed) {
       triage.accuracy = Math.min(0.97, triage.accuracy + 0.10);
-      if (triage.accuracy < 0.85) {
-        triage.followUpQuestion = "Where are you and what kind of help do you need?";
-      }
     } else if (hasVideo) {
       triage.accuracy = Math.min(0.97, triage.accuracy + 0.10);
     }

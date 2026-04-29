@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 dotenv.config();
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
-const genAI = new GoogleGenerativeAI('AIzaSyB0rrL0X8QpIz9iF5FANJG4Mh7vrTYwQ1s');
+const genAI = process.env.GOOGLE_API_KEY ? new GoogleGenerativeAI(process.env.GOOGLE_API_KEY) : null;
 
 export const triageEmergency = async (transcript) => {
   if (!groq) {
@@ -19,25 +19,87 @@ export const triageEmergency = async (transcript) => {
       response_format: { type: 'json_object' },
       messages: [{
         role: 'system',
-        content: 'You are an emergency triage AI. Reply ONLY with valid JSON.'
+        content: `You are an Autonomous Emergency Dispatch AI inside the KAVACH system.
+
+Your job is to:
+1. Analyze incoming emergency data (voice transcript, image/video input, metadata).
+2. Classify:
+   - emergency_type (fire, medical, crime, disaster, unknown)
+   - severity (low, medium, high, critical)
+3. Generate a CONFIDENCE SCORE (0 to 100) for your classification.
+
+🚨 CRITICAL RULE: HUMAN FALLBACK
+If confidence_score < 80:
+- IMMEDIATELY trigger HUMAN FALLBACK MODE.
+In HUMAN FALLBACK MODE:
+1. Do NOT delay response.
+2. Dispatch a SAFE DEFAULT response (nearest ambulance/police).
+3. Simultaneously escalate to a human dispatcher.
+4. Mark case as "REQUIRES HUMAN VALIDATION".
+
+If confidence_score >= 80:
+- Proceed with full autonomous dispatch.
+
+📤 OUTPUT FORMAT (STRICT JSON):
+{
+  "emergency_type": "",
+  "severity": "",
+  "location": "",
+  "confidence_score": 0,
+  "dispatch_units": [],
+  "fallback_triggered": true/false,
+  "action": "",
+  "user_message": "",
+  "survival_instructions": ""
+}
+
+🧾 ACTION RULES:
+If fallback_triggered = true:
+- action = "Dispatch default unit + Notify human dispatcher"
+- user_message = "We are connecting you to an emergency operator while help is being dispatched."
+
+If fallback_triggered = false:
+- action = "Autonomous dispatch"
+- user_message = "Help is on the way."
+
+🧠 IMPORTANT:
+- NEVER return empty fields. Extract location if possible, else "Unknown".
+- ALWAYS prioritize user safety over accuracy.
+- When unsure -> fallback.
+- Be fast, decisive, and safe.`
       }, {
         role: 'user',
-        content: `Analyze this 911 call transcript and return JSON:
-"${transcript}"
-
-Required fields:
-- emergencyType: string  (e.g. "Fire", "Medical", "Police", "Flood", "Collapse")
-- severity: "HIGH" | "MEDIUM" | "LOW"
-- locationName: string  (extracted place or "Unknown")
-- keywords: string[]    (3-5 relevant tags like ["FIRE","PANIC","TRAPPED"])
-- accuracy: number      (0.0–1.0, how much clear info was provided)
-- followUpQuestion: string | null  (ask in Hindi or English if accuracy < 0.85, else null)
-- reasoning: string     (1-2 sentence explanation of your decision)
-- resourceNeeded: "ambulance" | "fire" | "police" | "ndrf" | "swat" | "hazmat" | "multiple"`
+        content: `Analyze this emergency input:\n"${transcript}"`
       }]
     });
 
-    return JSON.parse(chat.choices[0].message.content);
+    const parsed = JSON.parse(chat.choices[0].message.content);
+    
+    // Map to the internal application format
+    let resourceNeeded = "police";
+    if (parsed.dispatch_units && parsed.dispatch_units.length > 0) {
+      const units = parsed.dispatch_units.map(u => u.toLowerCase());
+      if (units.some(u => u.includes('fire'))) resourceNeeded = 'fire';
+      else if (units.some(u => u.includes('med') || u.includes('amb'))) resourceNeeded = 'ambulance';
+      else if (units.some(u => u.includes('swat'))) resourceNeeded = 'swat';
+      else if (units.some(u => u.includes('ndrf'))) resourceNeeded = 'ndrf';
+      else if (units.some(u => u.includes('hazmat'))) resourceNeeded = 'hazmat';
+    } else {
+      if ((parsed.emergency_type || '').toLowerCase().includes('fire')) resourceNeeded = 'fire';
+      else if ((parsed.emergency_type || '').toLowerCase().includes('med')) resourceNeeded = 'ambulance';
+    }
+    
+    return {
+      emergencyType: parsed.emergency_type || "Emergency",
+      severity: (parsed.severity || "MEDIUM").toUpperCase(),
+      locationName: parsed.location || "Location pending",
+      keywords: parsed.dispatch_units || [],
+      accuracy: (parsed.confidence_score || 50) / 100,
+      followUpQuestion: parsed.user_message || null,
+      reasoning: `${parsed.action || ''} | ${parsed.survival_instructions || ''}`,
+      resourceNeeded: resourceNeeded,
+      fallback_triggered: parsed.fallback_triggered || false
+    };
   } catch (err) {
     console.error('Groq error:', err.message);
     return fallback(transcript);
@@ -99,6 +161,7 @@ const fallback = (text) => {
     followUpQuestion: accuracy < 0.85 ? followupQ : null,
     reasoning: `${type} emergency detected via keyword analysis. Confidence boosted by ${hasLocation ? 'location' : 'context'} signals. Simulated response (no API key).`,
     resourceNeeded: res,
+    fallback_triggered: false
   };
 };
 
@@ -106,6 +169,11 @@ const fallback = (text) => {
 // Uses Gemini to describe the emergency scene from an image.
 // Falls back gracefully if there's an error.
 export const analyzeImage = async (imageBase64, mimeType) => {
+  if (!genAI) {
+    console.warn('⚠ No GOOGLE_API_KEY — using fallback vision analysis');
+    return { success: false, text: "Visual analysis is unavailable (missing API key)." };
+  }
+  
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = 'You are an emergency dispatcher AI. Analyze this image from an emergency caller. In 2-3 concise sentences, describe: (1) what emergency is visible, (2) apparent severity and scale, (3) any identifying details like location clues, number of people, hazards. Be factual and direct.';
