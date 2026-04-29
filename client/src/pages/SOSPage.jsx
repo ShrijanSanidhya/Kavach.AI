@@ -94,31 +94,31 @@ export default function SOSPage() {
       }
     };
 
-    const fallbackSpeak = (text) => {
-      if (!window.speechSynthesis) { resumeMic(); return; }
-      window.speechSynthesis.cancel(); 
-      const u = new SpeechSynthesisUtterance(text); 
-      u.lang = 'en-IN'; u.rate = 0.95; 
-      const voices = window.speechSynthesis.getVoices();
-      u.voice = voices.find(v => v.lang.includes('IN') && v.name.includes('Female')) || voices.find(v => v.lang.includes('IN')) || voices[0];
-      u.onend = resumeMic;
-      u.onerror = resumeMic;
-      window.speechSynthesis.speak(u); 
-    };
-
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    try {
-      // Use Google Translate TTS as primary (reliable, natural Indian accent)
-      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(t)}&tl=hi&client=tw-ob`);
-      audio.onended = resumeMic;
-      audio.onerror = () => fallbackSpeak(t);
-      audio.play().catch(e => {
-        console.error("Audio play failed:", e);
-        fallbackSpeak(t);
-      });
-    } catch (err) {
-      fallbackSpeak(t);
+    if (!window.speechSynthesis) { resumeMic(); return; }
+    
+    // Clear any stuck audio
+    window.speechSynthesis.cancel(); 
+    
+    const u = new SpeechSynthesisUtterance(t); 
+    u.lang = 'en-IN'; // Indian English/Hindi accent
+    u.rate = 0.95; 
+    
+    // Try to find the best available native voice
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      u.voice = voices.find(v => v.lang.includes('IN') && v.name.includes('Female')) 
+             || voices.find(v => v.lang.includes('IN')) 
+             || voices[0];
     }
+    
+    u.onend = resumeMic;
+    u.onerror = (e) => {
+      console.warn("Speech synthesis error:", e);
+      resumeMic();
+    };
+    
+    // Force the browser to speak immediately
+    window.speechSynthesis.speak(u); 
   }, []);
 
   const onFile = (e) => {
