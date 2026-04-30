@@ -4,85 +4,76 @@ import DoneReport from './DoneReport';
 import { getProfile } from './emergencyProfiles';
 import { useHybridLocation } from '../hooks/useHybridLocation';
 
-// ── Bulletproof Web Audio TTS ─────────────────────────────────────────────
-// Uses Google Translate TTS played through Web Audio API to completely bypass browser bugs
+// ── Bulletproof Audio Element TTS ─────────────────────────────────────────────
+// Uses HTML Audio which handles chunked MP3s better than Web Audio API on Safari
 const tts = (() => {
-  let audioCtx = null;
-  let source = null;
+  let queue = [];
+  let playing = false;
   let isCancelled = false;
-  
-  const initAudio = () => {
-    if (typeof window !== 'undefined' && !audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
+  // Persistent audio element
+  const audio = typeof window !== 'undefined' ? new Audio() : null;
+
+  const playNext = () => {
+    if (playing || queue.length === 0 || !audio) return;
+    const { text, onDone } = queue.shift();
+    
+    // Chunking text into ~150 chars max
+    const chunks = text.match(/[^.!?,\n]{1,150}[.!?,\n]*/g) || [text];
+    let idx = 0;
+
+    const playChunk = () => {
+      if (isCancelled) return;
+      if (idx >= chunks.length) {
+        playing = false;
+        if (onDone) onDone();
+        playNext();
+        return;
+      }
+      
+      let chunk = chunks[idx].trim();
+      if (!chunk) { idx++; playChunk(); return; }
+
+      playing = true;
+      const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(chunk)}`;
+      
+      audio.src = url;
+      audio.onended = () => { idx++; playChunk(); };
+      audio.onerror = (e) => { console.warn('TTS chunk error:', e); idx++; playChunk(); };
+      
+      audio.play().catch(e => {
+        console.warn('Audio autoplay blocked:', e);
+        idx++; playChunk();
+      });
+    };
+    playChunk();
   };
 
   return {
     unlock() {
-      initAudio();
+      if (!audio) return;
+      // Play a silent 1ms audio to unlock this exact Audio element
+      audio.src = 'data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
+      audio.volume = 0;
+      audio.play().catch(()=>{});
+      setTimeout(() => { audio.volume = 1; }, 100);
     },
-    async speak(text, onDone) {
+    speak(text, onDone) {
+      this.cancel();
       isCancelled = false;
-      try {
-        if (!text || typeof window === 'undefined') { 
-          if(onDone) onDone(); 
-          return; 
-        }
-        initAudio();
-        if (source) { 
-          try { source.stop(); } catch(e){}
-          source.disconnect(); 
-        }
-        
-        // Chunking text into ~150 chars max so Google TTS doesn't fail
-        const chunks = text.match(/[^.!?,\n]{1,150}[.!?,\n]*/g) || [text];
-        
-        const playSeq = async (idx) => {
-          if (isCancelled) return;
-          if (idx >= chunks.length) {
-            if (onDone) onDone();
-            return;
-          }
-          const chunk = chunks[idx].trim();
-          if (!chunk) return playSeq(idx+1);
-          
-          try {
-            // Using gtx client endpoint which doesn't block requests
-            const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(chunk)}`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('TTS fetch failed');
-            
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            
-            if (isCancelled) return;
-            
-            source = audioCtx.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioCtx.destination);
-            source.onended = () => playSeq(idx+1);
-            source.start(0);
-          } catch(e) {
-            console.warn("Audio buffer error:", e);
-            playSeq(idx+1); // skip chunk on error
-          }
-        };
-        
-        playSeq(0);
-      } catch (err) {
-        console.warn('TTS Master Error:', err);
-        if (onDone) onDone();
-      }
+      if (!text) { if(onDone) onDone(); return; }
+      
+      // Clean up text
+      const cleanText = text.replace(/[\u1000-\uFFFF]+/g, '');
+      queue = [{ text: cleanText, onDone }];
+      playNext();
     },
     cancel() {
       isCancelled = true;
-      if (source) {
-        try { source.stop(); } catch(e){}
-        source.disconnect();
-        source = null;
+      queue = [];
+      playing = false;
+      if (audio) {
+        audio.pause();
+        audio.src = '';
       }
     }
   };
@@ -142,9 +133,11 @@ export default function SOSPage() {
     const handleUnlock = () => tts.unlock();
     document.addEventListener('click', handleUnlock, { once: true });
     document.addEventListener('touchstart', handleUnlock, { once: true });
+    document.addEventListener('keydown', handleUnlock, { once: true }); // Catch Enter key presses
     return () => {
       document.removeEventListener('click', handleUnlock);
       document.removeEventListener('touchstart', handleUnlock);
+      document.removeEventListener('keydown', handleUnlock);
     };
   }, []);
 
@@ -215,9 +208,18 @@ export default function SOSPage() {
         setIncidentId(d.dispatch.incident.id);
         setStep(STEP.DONE);
         const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
-        speak(d.triage?.followUpQuestion || `Aap safe jagah pe rahein. Help pahunch rahi hai. Please listen carefully: ${tips}`);
-        setTimeout(() => navigate(`/track/${d.dispatch.incident.id}`), 6000);
-      } else { setStep(STEP.FOLLOWUP); if(d.triage?.followUpQuestion) speak(d.triage.followUpQuestion); }
+        
+        // DO NOT navigate until TTS has fully finished speaking the instructions!
+        speak(
+          d.triage?.followUpQuestion || `Help is on the way. Please listen carefully: ${tips}`,
+          () => {
+            navigate(`/track/${d.dispatch.incident.id}`);
+          }
+        );
+      } else { 
+        setStep(STEP.FOLLOWUP); 
+        if(d.triage?.followUpQuestion) speak(d.triage.followUpQuestion); 
+      }
     } catch(err) { clearInterval(timerRef.current); console.error(err); setStep(STEP.IDLE); }
   }, [media]);
 
@@ -234,12 +236,18 @@ export default function SOSPage() {
         setIncidentId(newId);
         setStep(STEP.DONE);
         const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
-        speak(d.triage?.followUpQuestion || `Help aa rahi hai. Aap safe rahein. ${tips ? 'Please listen: ' + tips : ''}`);
-        setTimeout(() => navigate(`/track/${newId}`), 6000);
+        
+        // Wait for TTS to finish before navigating!
+        speak(
+          d.triage?.followUpQuestion || `Help is on the way. ${tips ? 'Please listen: ' + tips : ''}`,
+          () => {
+            navigate(`/track/${newId}`);
+          }
+        );
       } else {
         // Still not confident enough — stay on FOLLOWUP with new question
         setStep(STEP.FOLLOWUP);
-        speak(d.triage?.followUpQuestion || 'Kya aap apni location ya paas ka landmark bata sakte hain?');
+        speak(d.triage?.followUpQuestion || 'Please provide your exact location or a nearby landmark.');
       }
     } catch(err) { console.error(err); setStep(STEP.FOLLOWUP); }
   }, [text, followup, realLocation]);
