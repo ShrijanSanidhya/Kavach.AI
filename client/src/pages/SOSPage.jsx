@@ -6,74 +6,63 @@ import { useHybridLocation } from '../hooks/useHybridLocation';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-// ── Native Browser TTS — 100% free, no API keys, works offline ──────────────
+// ── Backend-Proxied Audio TTS ──────────────────────────────────────────
+// Uses our own Express /api/speak which proxies Google TTS server-side.
+// HTML Audio elements stay unlocked for the ENTIRE session after 1 gesture.
 const tts = (() => {
+  const audio = typeof window !== 'undefined' ? new Audio() : null;
+  let queue = [];
+  let busy = false;
   let isCancelled = false;
-  let utterance = null; // keep reference so GC doesn't kill it
 
-  const synth = () => typeof window !== 'undefined' ? window.speechSynthesis : null;
+  const chunkText = (text) => {
+    const words = text.split(/\s+/);
+    const chunks = [];
+    let cur = '';
+    for (const w of words) {
+      if (cur.length + w.length + 1 > 180) { chunks.push(cur.trim()); cur = w; }
+      else cur += (cur ? ' ' : '') + w;
+    }
+    if (cur.trim()) chunks.push(cur.trim());
+    return chunks;
+  };
 
-  const getBestVoice = () => {
-    const voices = synth()?.getVoices() || [];
-    return (
-      voices.find(v => /Samantha/i.test(v.name)) ||        // Mac default (clear)
-      voices.find(v => /Google US English/i.test(v.name)) || // Chrome
-      voices.find(v => /en-IN/i.test(v.lang)) ||            // Indian accent
-      voices.find(v => /en/i.test(v.lang)) ||               // Any English
-      voices[0] || null
-    );
+  const next = () => {
+    if (busy || !queue.length || !audio || isCancelled) return;
+    const { chunk, onDone } = queue.shift();
+    busy = true;
+    const url = `${API}/api/speak?text=${encodeURIComponent(chunk)}`;
+    audio.src = url;
+    audio.onended = () => { busy = false; if (isCancelled) return; if (queue.length) next(); else if (onDone) onDone(); };
+    audio.onerror = () => { busy = false; if (isCancelled) return; if (queue.length) next(); else if (onDone) onDone(); };
+    audio.play().catch(e => { console.error('Audio play error:', e); busy = false; if (onDone) onDone(); });
   };
 
   return {
     unlock() {
-      const s = synth();
-      if (!s) return;
-      const u = new SpeechSynthesisUtterance('');
-      u.volume = 0;
-      s.speak(u);
+      if (!audio) return;
+      // Play 100ms of silence to permanently unlock this audio element for the session
+      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      audio.play().catch(() => {});
     },
-
     speak(text, onDone) {
-      const s = synth();
-      if (!s) { if (onDone) onDone(); return; }
-
+      if (!audio || !text?.trim()) { if (onDone) onDone(); return; }
       this.cancel();
       isCancelled = false;
-      if (!text?.trim()) { if (onDone) onDone(); return; }
-
-      const clean = text.replace(/[^\x00-\x7F]/g, ''); // strip non-ASCII/emoji
-
-      utterance = new SpeechSynthesisUtterance(clean);
-      utterance.lang  = 'en-IN';
-      utterance.rate  = 0.92;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-
-      const voice = getBestVoice();
-      if (voice) utterance.voice = voice;
-
-      utterance.onend = () => { if (!isCancelled && onDone) onDone(); };
-      utterance.onerror = (e) => {
-        console.warn('TTS error:', e.error);
-        if (!isCancelled && onDone) onDone();
-      };
-
-      s.speak(utterance);
-
-      // Chrome desktop bug: pauses after ~15s unless we poke it
-      const keepAlive = setInterval(() => {
-        if (!s.speaking || isCancelled) { clearInterval(keepAlive); return; }
-        if (s.paused) s.resume();
-      }, 5000);
+      const clean = text.replace(/[^\x00-\x7F]/g, '');
+      const chunks = chunkText(clean);
+      queue = chunks.map((chunk, i) => ({ chunk, onDone: i === chunks.length - 1 ? onDone : null }));
+      next();
     },
-
     cancel() {
       isCancelled = true;
-      utterance = null;
-      synth()?.cancel();
+      queue = [];
+      busy = false;
+      if (audio) { audio.pause(); audio.src = ''; }
     }
   };
 })();
+
 
 const STEP = { IDLE:0, LISTENING:1, ANALYZING:2, FOLLOWUP:3, DONE:4 };
 const C = {

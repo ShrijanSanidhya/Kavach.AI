@@ -164,6 +164,24 @@ app.post('/api/chaos', async (req, res) => {
   });
 });
 
+// ── TTS Proxy ── serves Google Translate TTS audio server-side (no CORS issues)
+app.get('/api/speak', async (req, res) => {
+  const text = req.query.text;
+  if (!text) return res.status(400).json({ error: 'Missing text' });
+  try {
+    const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(text.slice(0, 200))}`;
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KAVACH/1.0)' }
+    });
+    if (!r.ok) throw new Error(`TTS upstream ${r.status}`);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    r.body.pipe(res);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Network-based location fallback via Google Geolocation API
 // Proxied server-side so the API key stays secret
 app.post('/api/geolocate', async (req, res) => {
