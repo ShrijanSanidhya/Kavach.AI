@@ -7,11 +7,20 @@ import { store, addLog } from './state/store.js';
 import { triageEmergency, analyzeImage } from './agents/triageAgent.js';
 import { processDispatch } from './agents/dispatchAgent.js';
 import { chaosCalls } from './data/calls.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// ── Serve Static Files (for production) ───────────────────────
+const clientDistPath = path.join(__dirname, '../client/dist');
+app.use(express.static(clientDistPath));
 
 // ── SSE clients ──────────────────────────────────────────────
 let sseClients = [];
@@ -180,3 +189,8 @@ app.post('/api/geolocate', async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`✅ KAVACH server on http://localhost:${PORT}`));
+
+// Catch-all to serve index.html for React Router (Express 5 compatible)
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(clientDistPath, 'index.html'));
+});

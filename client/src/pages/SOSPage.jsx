@@ -4,6 +4,8 @@ import DoneReport from './DoneReport';
 import { getProfile } from './emergencyProfiles';
 import { useHybridLocation } from '../hooks/useHybridLocation';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 // ── Premium ElevenLabs TTS ─────────────────────────────────────────────
 const tts = (() => {
   let queue = [];
@@ -20,8 +22,7 @@ const tts = (() => {
       playing = true;
       try {
         const apiKey = 'sk_c74ede308ad2edb3135d2cc2c38cdd68b228cf69463c1d90';
-        // 'EXAVITQu4vr4xnSDxMaL' is Sarah (professional, clear female voice)
-        const voiceId = 'EXAVITQu4vr4xnSDxMaL';
+        const voiceId = 'EXAVITQu4vr4xnSDxMaL'; // Sarah
         
         const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
           method: 'POST',
@@ -32,7 +33,6 @@ const tts = (() => {
           },
           body: JSON.stringify({
             text: text,
-            // multilingual_v2 handles Hinglish flawlessly
             model_id: 'eleven_multilingual_v2',
             voice_settings: { stability: 0.5, similarity_boost: 0.75 }
           })
@@ -84,7 +84,6 @@ const tts = (() => {
   };
 })();
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const STEP = { IDLE:0, LISTENING:1, ANALYZING:2, FOLLOWUP:3, DONE:4 };
 const C = {
   bg:'#141414', bg1:'#1c1c1c', bg2:'#242424', bg3:'#2e2e2e',
@@ -95,7 +94,6 @@ const C = {
   text:'#f5f5f5', muted:'#9e9e9e', dim:'#616161',
 };
 
-// Glowing shield icon
 function ShieldIcon({ size = 26 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -133,12 +131,11 @@ export default function SOSPage() {
   const stepRef = useRef(STEP.IDLE);
   useEffect(() => { stepRef.current = step; }, [step]);
 
-  // Unlock TTS on first user interaction
   useEffect(() => {
     const handleUnlock = () => tts.unlock();
     document.addEventListener('click', handleUnlock, { once: true });
     document.addEventListener('touchstart', handleUnlock, { once: true });
-    document.addEventListener('keydown', handleUnlock, { once: true }); // Catch Enter key presses
+    document.addEventListener('keydown', handleUnlock, { once: true });
     return () => {
       document.removeEventListener('click', handleUnlock);
       document.removeEventListener('touchstart', handleUnlock);
@@ -176,13 +173,14 @@ export default function SOSPage() {
     else startMic();
   };
 
-  const speak = useCallback((t) => {
-    if (!t) return;
-    stopMic(); // Pause mic so it doesn't record the AI's own voice
+  const speak = useCallback((t, onDone) => {
+    if (!t) { if(onDone) onDone(); return; }
+    stopMic();
     const resumeMic = () => {
       if (stepRef.current === STEP.IDLE || stepRef.current === STEP.FOLLOWUP) {
         startMic();
       }
+      if (onDone) onDone();
     };
     tts.speak(t, resumeMic);
   }, []);
@@ -197,6 +195,7 @@ export default function SOSPage() {
 
   const submit = useCallback(async (t) => {
     if (!t.trim() && !media) return;
+    speak("Analyzing your emergency report. Please stay calm and keep your phone close.");
     setStep(STEP.ANALYZING); setElapsed(0); setVision('');
     timerRef.current = setInterval(() => setElapsed(e=>e+1), 1000);
     try {
@@ -214,11 +213,10 @@ export default function SOSPage() {
         setStep(STEP.DONE);
         const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
         
-        // DO NOT navigate until TTS has fully finished speaking the instructions!
         speak(
           d.triage?.followUpQuestion || `Help is on the way. Please listen carefully: ${tips}`,
           () => {
-            navigate(`/track/${d.dispatch.incident.id}`);
+            navigate(`/mission/${d.dispatch.incident.id}`);
           }
         );
       } else { 
@@ -226,7 +224,7 @@ export default function SOSPage() {
         if(d.triage?.followUpQuestion) speak(d.triage.followUpQuestion); 
       }
     } catch(err) { clearInterval(timerRef.current); console.error(err); setStep(STEP.IDLE); }
-  }, [media]);
+  }, [media, realLocation, speak, navigate]);
 
   const submitFU = useCallback(async () => {
     if (!followup.trim()) return;
@@ -242,20 +240,18 @@ export default function SOSPage() {
         setStep(STEP.DONE);
         const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
         
-        // Wait for TTS to finish before navigating!
         speak(
           d.triage?.followUpQuestion || `Help is on the way. ${tips ? 'Please listen: ' + tips : ''}`,
           () => {
-            navigate(`/track/${newId}`);
+            navigate(`/mission/${newId}`);
           }
         );
       } else {
-        // Still not confident enough — stay on FOLLOWUP with new question
         setStep(STEP.FOLLOWUP);
         speak(d.triage?.followUpQuestion || 'Please provide your exact location or a nearby landmark.');
       }
     } catch(err) { console.error(err); setStep(STEP.FOLLOWUP); }
-  }, [text, followup, realLocation]);
+  }, [text, followup, realLocation, speak, navigate]);
 
   const reset = () => { setStep(STEP.IDLE); setText(''); setTriage(null); setDispatch(null); setBar(0); setFollowup(''); removeMedia(); tts.cancel(); };
 
@@ -264,8 +260,6 @@ export default function SOSPage() {
 
   return (
     <div style={{ minHeight:'100vh', background:C.bg, display:'flex', flexDirection:'column', color:C.text, position:'relative', overflow:'hidden' }}>
-
-      {/* Ambient colour blobs - REMOVED for professional look */}
 
       <input ref={fileRef} type="file" accept="image/*,video/*" style={{ display:'none' }} onChange={onFile} />
 
@@ -341,7 +335,6 @@ export default function SOSPage() {
                 </div>
               </div>
 
-              {/* INPUT CARD */}
               <div style={{ background:C.bg1, border:`1px solid ${C.border}`, borderRadius:12, overflow:'hidden' }}>
                 <div style={{ padding:'18px 20px 10px' }}>
                   <label style={{ display:'block', fontSize:10, color:C.muted, letterSpacing:'0.16em', marginBottom:10, fontWeight:700 }}>DESCRIBE YOUR EMERGENCY</label>
@@ -381,7 +374,6 @@ export default function SOSPage() {
             </>
           )}
 
-          {/* ANALYZING */}
           {step===STEP.ANALYZING && (
             <div style={{ textAlign:'center', animation:'fadeIn 0.3s ease' }}>
               <div style={{ position:'relative', width:72, height:72, margin:'0 auto 24px' }}>
@@ -395,7 +387,6 @@ export default function SOSPage() {
             </div>
           )}
 
-          {/* FOLLOWUP */}
           {step===STEP.FOLLOWUP && (<>
             <TriageCard triage={triage} bar={bar} barCol={barCol} vision={vision} />
             <div style={{ background:C.bg1, border:`1px solid ${C.red}`, borderRadius:12, padding:24, marginTop:14, boxShadow:`0 0 20px ${C.redGlow}`, animation:'fadeIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
@@ -432,7 +423,6 @@ export default function SOSPage() {
             </div>
           </>)}
 
-          {/* DONE */}
           {step===STEP.DONE && (
             <DoneReport 
               profile={getProfile(triage?.emergencyType, triage?.resourceNeeded)} 
@@ -456,8 +446,6 @@ export default function SOSPage() {
     </div>
   );
 }
-
-// (End of file)
 
 function TriageCard({ triage, bar, barCol, vision }) {
   if (!triage) return null;

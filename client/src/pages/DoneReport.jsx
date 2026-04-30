@@ -1,17 +1,28 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MapView from '../components/MapView';
 
 const R = '#c62828'; // base red
 const bg1 = '#121212', bd = '#2a2a2a', mu = '#888', di = '#444', tx = '#f5f5f5';
 
 export default function DoneReport({ profile, inc, dispatch, triage, onReset }) {
+  const navigate = useNavigate();
   const [cd, setCd] = useState(6);
   const [ra, setRa] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => setCd(c => Math.max(0, c - 1)), 1000);
+    const id = setInterval(() => {
+      setCd(c => {
+        if (c <= 1 && inc?.id) {
+          clearInterval(id);
+          navigate(`/mission/${inc.id}`);
+          return 0;
+        }
+        return Math.max(0, c - 1);
+      });
+    }, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [inc?.id, navigate]);
 
   useEffect(() => {
     const id = setInterval(() => setRa(p => (p < profile.actions.length - 1 ? p + 1 : p)), 550);
