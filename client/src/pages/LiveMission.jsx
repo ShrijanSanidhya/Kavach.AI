@@ -143,18 +143,18 @@ export default function LiveMission() {
       </div>
 
       {/* ── MAIN BODY ── */}
-      <div style={{ flex: 1, display: 'flex', minHeight: 0, overflow: 'hidden' }}>
+      <div style={{
+        flex: 1,
+        display: 'grid',
+        // Map tab → map is 3x bigger than status; Status tab → status is 2x bigger than map
+        gridTemplateColumns: tab === 'map' ? '3fr 1fr' : '1fr 2fr',
+        transition: 'grid-template-columns 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+        minHeight: 0,
+        overflow: 'hidden',
+      }}>
 
-        {/* LEFT — MAP panel (shrinks/grows based on tab) */}
-        <div style={{
-          position: 'relative',
-          overflow: 'hidden',
-          flexShrink: 0,
-          // 'status' tab → small 180px thumbnail; 'map' tab → fill everything
-          width: tab === 'map' ? '100%' : '180px',
-          transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          cursor: tab === 'status' ? 'pointer' : 'default',
-        }} onClick={() => tab === 'status' && setTab('map')} title={tab === 'status' ? 'Click to expand map' : ''}>
+        {/* LEFT — MAP panel */}
+        <div style={{ position: 'relative', overflow: 'hidden' }}>
           <MapContainer center={mapCenter} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
             <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="CARTO" />
             {incLoc && <MapFly center={incLoc} />}
@@ -184,22 +184,8 @@ export default function LiveMission() {
           </div>
         </div>
 
-        {/* RIGHT — STATUS PANEL (slides in/out based on tab) */}
-        <div style={{
-          background: C.bg1,
-          borderLeft: `1px solid ${C.border}`,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          // 'map' tab → collapse to 0; 'status' tab → 360px
-          width: tab === 'status' ? '360px' : '0px',
-          flexShrink: 0,
-          transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          // Prevent content from wrapping during collapse
-          minWidth: 0,
-        }}>
-          {/* Inner wrapper keeps content at 360px so it doesn't reflow during animation */}
-          <div style={{ width: 360, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        {/* RIGHT — STATUS PANEL */}
+        <div style={{ background: C.bg1, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
 
           {/* Incident identity */}
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, background: `${d.color}08` }}>
@@ -289,7 +275,7 @@ export default function LiveMission() {
             <Link to="/" style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8, background: C.bg2, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>← Home</Link>
             <Link to="/command" style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8, background: d.color, border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>Command →</Link>
           </div>
-          </div>{/* /inner 360px wrapper */}
+          </div>
         </div>{/* /right panel */}
       </div>
 
