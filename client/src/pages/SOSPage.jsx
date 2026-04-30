@@ -4,65 +4,86 @@ import DoneReport from './DoneReport';
 import { getProfile } from './emergencyProfiles';
 import { useHybridLocation } from '../hooks/useHybridLocation';
 
-// ── Robust TTS ─────────────────────────────────────────────
-// Loads voices once, queues utterances, never breaks autoplay
+// ── Bulletproof Web Audio TTS ─────────────────────────────────────────────
+// Uses Google Translate TTS played through Web Audio API to completely bypass browser bugs
 const tts = (() => {
-  let voices = [];
-  let ready = false;
-  let queue = [];
-  let speaking = false;
-
-  const loadVoices = () => {
-    const v = window.speechSynthesis?.getVoices() || [];
-    if (v.length) { voices = v; ready = true; }
+  let audioCtx = null;
+  let source = null;
+  let isCancelled = false;
+  
+  const initAudio = () => {
+    if (typeof window !== 'undefined' && !audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
   };
-
-  const pickVoice = () => {
-    return voices.find(v => /en.IN/i.test(v.lang) && /female|woman|zira|heera/i.test(v.name))
-      || voices.find(v => /en.IN/i.test(v.lang))
-      || voices.find(v => /IN/i.test(v.lang))
-      || voices.find(v => /en/i.test(v.lang))
-      || voices[0]
-      || null;
-  };
-
-  const flush = () => {
-    if (speaking || !queue.length) return;
-    const { text, onDone } = queue.shift();
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-IN';
-    u.rate = 0.92;
-    u.pitch = 1.05;
-    u.voice = pickVoice();
-    speaking = true;
-    u.onend = u.onerror = () => { speaking = false; onDone && onDone(); flush(); };
-    window.speechSynthesis.speak(u);
-    // Chrome bug: long utterances get cut at ~15s — resume trick
-    const resume = setInterval(() => {
-      if (!speaking) { clearInterval(resume); return; }
-      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-    }, 5000);
-  };
-
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    loadVoices();
-    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
-  }
 
   return {
-    speak(text, onDone) {
-      if (!text || !window.speechSynthesis) { onDone && onDone(); return; }
-      window.speechSynthesis.cancel();
-      speaking = false;
-      queue = [{ text, onDone }];
-      if (!ready) loadVoices();
-      flush();
+    unlock() {
+      initAudio();
+    },
+    async speak(text, onDone) {
+      isCancelled = false;
+      try {
+        if (!text || typeof window === 'undefined') { 
+          if(onDone) onDone(); 
+          return; 
+        }
+        initAudio();
+        if (source) { 
+          try { source.stop(); } catch(e){}
+          source.disconnect(); 
+        }
+        
+        // Chunking text into ~150 chars max so Google TTS doesn't fail
+        const chunks = text.match(/[^.!?,\n]{1,150}[.!?,\n]*/g) || [text];
+        
+        const playSeq = async (idx) => {
+          if (isCancelled) return;
+          if (idx >= chunks.length) {
+            if (onDone) onDone();
+            return;
+          }
+          const chunk = chunks[idx].trim();
+          if (!chunk) return playSeq(idx+1);
+          
+          try {
+            // Using gtx client endpoint which doesn't block requests
+            const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(chunk)}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('TTS fetch failed');
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            if (isCancelled) return;
+            
+            source = audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioCtx.destination);
+            source.onended = () => playSeq(idx+1);
+            source.start(0);
+          } catch(e) {
+            console.warn("Audio buffer error:", e);
+            playSeq(idx+1); // skip chunk on error
+          }
+        };
+        
+        playSeq(0);
+      } catch (err) {
+        console.warn('TTS Master Error:', err);
+        if (onDone) onDone();
+      }
     },
     cancel() {
-      queue = [];
-      speaking = false;
-      window.speechSynthesis?.cancel();
+      isCancelled = true;
+      if (source) {
+        try { source.stop(); } catch(e){}
+        source.disconnect();
+        source = null;
+      }
     }
   };
 })();
@@ -115,6 +136,17 @@ export default function SOSPage() {
   const fileRef  = useRef(null);
   const stepRef = useRef(STEP.IDLE);
   useEffect(() => { stepRef.current = step; }, [step]);
+
+  // Unlock TTS on first user interaction
+  useEffect(() => {
+    const handleUnlock = () => tts.unlock();
+    document.addEventListener('click', handleUnlock, { once: true });
+    document.addEventListener('touchstart', handleUnlock, { once: true });
+    return () => {
+      document.removeEventListener('click', handleUnlock);
+      document.removeEventListener('touchstart', handleUnlock);
+    };
+  }, []);
 
   useEffect(() => {
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
