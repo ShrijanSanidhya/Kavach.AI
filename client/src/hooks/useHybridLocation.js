@@ -9,7 +9,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const API = 'http://localhost:3001';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const LERP = 0.4;             // Smoothing factor (0=no move, 1=instant)
 const POOR_ACCURACY = 80;     // Meters — below this, GPS is trusted
 const FALLBACK_COOLDOWN = 30000; // ms — minimum time between network calls
