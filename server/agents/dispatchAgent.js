@@ -25,7 +25,7 @@ let incSeq = 0;
 export const processDispatch = (triage, rawTranscript, explicitLocation = null) => {
   store.stats.totalCalls++;
 
-  const loc = explicitLocation || randomNearDelhi();
+  const loc = explicitLocation || randomNearKishora();
   const dup = isDuplicate(triage, loc);
 
   if (dup) {
@@ -100,7 +100,7 @@ export const processDispatch = (triage, rawTranscript, explicitLocation = null) 
   return { status: 'created', incident };
 };
 
-const randomNearDelhi = () => [
-  28.6139 + (Math.random() - 0.5) * 0.18,
-  77.2090 + (Math.random() - 0.5) * 0.18,
+const randomNearKishora = () => [
+  28.98 + (Math.random() - 0.5) * 0.10,
+  77.05 + (Math.random() - 0.5) * 0.10,
 ];

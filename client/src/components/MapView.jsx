@@ -12,7 +12,7 @@ function MapUpdater({ center }) {
 }
 
 export default function MapView({ incidents, selectedIncident }) {
-  const defaultCenter = [28.6139, 77.2090]; // New Delhi
+  const defaultCenter = [28.98, 77.05]; 
   const center = selectedIncident?.location || defaultCenter;
 
   return (

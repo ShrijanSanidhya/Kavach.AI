@@ -86,7 +86,7 @@ const fallback = (text) => {
               : /rohini/i.test(t) ? 'Rohini'
               : /noida/i.test(t) ? 'Noida'
               : /dwarka/i.test(t) ? 'Dwarka'
-              : 'New Delhi';
+              : 'X3MR+42 Kishora, Haryana';
 
   return {
     emergencyType: type,

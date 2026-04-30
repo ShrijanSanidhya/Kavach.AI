@@ -81,7 +81,7 @@ export default function CommandCenter() {
 
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <span style={{width:8,height:8,borderRadius:'50%',backgroundColor:C.red,boxShadow:`0 0 8px ${C.red}`,display:'inline-block',animation:'pulse 1.2s ease-in-out infinite'}}/>
-          <span style={{fontWeight:700,fontSize:12,color:C.red,letterSpacing:'0.08em'}}>ACTIVE DISASTER — NEW DELHI</span>
+          <span style={{fontWeight:700,fontSize:12,color:C.red,letterSpacing:'0.08em'}}>ACTIVE DISASTER — KISHORA, HARYANA</span>
           <span style={{color:C.muted,fontSize:12,fontFamily:'JetBrains Mono,monospace',marginLeft:8}}>{clock}</span>
         </div>
 
@@ -119,7 +119,7 @@ export default function CommandCenter() {
         {/* CENTER — Map + Detail */}
         <div style={{display:'flex',flexDirection:'column',gap:10,overflow:'hidden',minHeight:0}}>
           <div style={{flex:1,minHeight:0,...panel,overflow:'hidden'}}>
-            <MapContainer center={[28.6139,77.209]} zoom={12} style={{height:'100%',width:'100%'}} zoomControl={false}>
+            <MapContainer center={[28.98, 77.05]} zoom={12} style={{height:'100%',width:'100%'}} zoomControl={false}>
               <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="CARTO"/>
               {state.incidents.map(inc=>{
                 if(!inc.location)return null;
