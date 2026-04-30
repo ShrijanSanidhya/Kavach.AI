@@ -4,7 +4,7 @@ import DoneReport from './DoneReport';
 import { getProfile } from './emergencyProfiles';
 import { useHybridLocation } from '../hooks/useHybridLocation';
 
-// ── Bulletproof Audio Element TTS ─────────────────────────────────────────────
+// ── Premium ElevenLabs TTS ─────────────────────────────────────────────
 const tts = (() => {
   let queue = [];
   let playing = false;
@@ -15,44 +15,48 @@ const tts = (() => {
     if (playing || queue.length === 0 || !audio) return;
     const { text, onDone } = queue.shift();
     
-    // STRICT CHUNKING to prevent Google TTS 404s (Max 200 chars)
-    const words = text.split(/\s+/);
-    const chunks = [];
-    let currentChunk = '';
-    
-    for (const w of words) {
-      if ((currentChunk + ' ' + w).length > 150) {
-        chunks.push(currentChunk.trim());
-        currentChunk = w;
-      } else {
-        currentChunk += (currentChunk ? ' ' : '') + w;
-      }
-    }
-    if (currentChunk) chunks.push(currentChunk.trim());
-
-    let idx = 0;
-
-    const playChunk = () => {
+    const playAudio = async () => {
       if (isCancelled) return;
-      if (idx >= chunks.length) {
+      playing = true;
+      try {
+        const apiKey = 'sk_c74ede308ad2edb3135d2cc2c38cdd68b228cf69463c1d90';
+        // 'EXAVITQu4vr4xnSDxMaL' is Sarah (professional, clear female voice)
+        const voiceId = 'EXAVITQu4vr4xnSDxMaL';
+        
+        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'audio/mpeg',
+            'xi-api-key': apiKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: text,
+            // multilingual_v2 handles Hinglish flawlessly
+            model_id: 'eleven_multilingual_v2',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+          })
+        });
+
+        if (!res.ok) throw new Error('ElevenLabs API error');
+        
+        const blob = await res.blob();
+        if (isCancelled) return;
+        
+        const url = URL.createObjectURL(blob);
+        audio.src = url;
+        audio.onended = () => { URL.revokeObjectURL(url); playing = false; if(onDone) onDone(); playNext(); };
+        audio.onerror = (e) => { console.warn('Audio Error:', e); URL.revokeObjectURL(url); playing = false; if(onDone) onDone(); playNext(); };
+        
+        await audio.play();
+      } catch (err) {
+        console.error('ElevenLabs TTS Error:', err);
         playing = false;
         if (onDone) onDone();
         playNext();
-        return;
       }
-      
-      let chunk = chunks[idx];
-      if (!chunk) { idx++; playChunk(); return; }
-
-      playing = true;
-      const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(chunk)}`;
-      
-      audio.src = url;
-      audio.onended = () => { idx++; playChunk(); };
-      audio.onerror = (e) => { console.warn('TTS Error:', e); idx++; playChunk(); };
-      audio.play().catch(e => { console.warn('Blocked:', e); idx++; playChunk(); });
     };
-    playChunk();
+    playAudio();
   };
 
   return {
