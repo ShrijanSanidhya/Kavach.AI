@@ -275,7 +275,6 @@ export default function LiveMission() {
             <Link to="/" style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8, background: C.bg2, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>← Home</Link>
             <Link to="/command" style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8, background: d.color, border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>Command →</Link>
           </div>
-          </div>
         </div>{/* /right panel */}
       </div>
 
