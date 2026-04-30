@@ -81,7 +81,7 @@ export default function CommandCenter() {
 
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <span style={{width:8,height:8,borderRadius:'50%',backgroundColor:C.red,boxShadow:`0 0 8px ${C.red}`,display:'inline-block',animation:'pulse 1.2s ease-in-out infinite'}}/>
-          <span style={{fontWeight:700,fontSize:12,color:C.red,letterSpacing:'0.08em'}}>ACTIVE DISASTER — KISHORA, HARYANA</span>
+          <span style={{fontWeight:700,fontSize:12,color:C.red,letterSpacing:'0.08em'}}>LIVE INCIDENT COMMAND</span>
           <span style={{color:C.muted,fontSize:12,fontFamily:'JetBrains Mono,monospace',marginLeft:8}}>{clock}</span>
         </div>
 
@@ -89,7 +89,6 @@ export default function CommandCenter() {
           <Pill label="HIGH" n={highN} color={C.red}/>
           <Pill label="MED"  n={medN}  color={C.orange}/>
           <Pill label="LOW"  n={lowN}  color={C.amber}/>
-          <span style={{color:C.muted,fontSize:12,fontFamily:'JetBrains Mono,monospace'}}>{clock}</span>
           <div style={{width:1,height:26,background:C.border,margin:'0 4px'}}/>
           <button onClick={triggerChaos} style={{background:chaos?C.red:'transparent',color:chaos?'#fff':C.red,border:`1px solid ${C.red}`,padding:'5px 12px',borderRadius:6,fontWeight:700,fontSize:11,cursor:'pointer',letterSpacing:'0.06em',transition:'all 0.15s'}}>
             CHAOS MODE

@@ -64,7 +64,7 @@ export default function DoneReport({ profile, inc, dispatch, triage, onReset }) 
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 10, color: di, letterSpacing: '0.15em', fontWeight: 700, marginBottom: 6 }}>TRACKING FEED IN</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: a, fontFamily: 'monospace' }}>
-                  00:0{cd}
+                  00:{String(cd).padStart(2, '0')}
                 </div>
               </div>
             </div>

@@ -141,6 +141,9 @@ Analyze this emergency input and return STRICT JSON.`
 
     const spokenMessage = [parsed.user_message, parsed.survival_instructions].filter(Boolean).join(" ");
 
+    // Always ensure a non-empty followUpQuestion
+    const defaultFollowup = buildDefaultFollowup(parsed.emergency_type, parsed.fallback_triggered);
+
     return {
       emergencyType: parsed.emergency_type || "Emergency",
       severity: (parsed.severity || "MEDIUM").toUpperCase(),
@@ -148,7 +151,7 @@ Analyze this emergency input and return STRICT JSON.`
       location: locArr,
       keywords: parsed.dispatch_units || [],
       accuracy: (parsed.confidence_score || 50) / 100,
-      followUpQuestion: spokenMessage || null,
+      followUpQuestion: spokenMessage || defaultFollowup,
       reasoning: `${parsed.action || ''} | ${parsed.survival_instructions || ''}`,
       resourceNeeded: resourceNeeded,
       fallback_triggered: parsed.fallback_triggered || false
@@ -157,6 +160,19 @@ Analyze this emergency input and return STRICT JSON.`
     console.error('Groq error:', err.message);
     return fallback(transcript);
   }
+};
+
+// Always returns a helpful question based on emergency type
+const buildDefaultFollowup = (emergencyType = '', fallbackTriggered = false) => {
+  const t = emergencyType.toLowerCase();
+  if (fallbackTriggered) {
+    return 'Help is being dispatched. To reach you faster — please tell us: 1) Your exact location or a nearby landmark, and 2) How many people are affected?';
+  }
+  if (t.includes('fire') || t.includes('explo')) return 'Fire brigade is en route. Are there any people trapped inside? Please stay low and move to the nearest exit.';
+  if (t.includes('medic') || t.includes('accident')) return 'Ambulance is on the way. Is the person conscious and breathing? Apply pressure to any wounds.';
+  if (t.includes('chem') || t.includes('gas') || t.includes('hazmat')) return 'HAZMAT team is responding. Move upwind immediately and do not use any flames or switches.';
+  if (t.includes('flood') || t.includes('land') || t.includes('quake')) return 'NDRF team is mobilizing. Move to higher ground if possible and stay away from damaged structures.';
+  return 'Help is on the way. Please stay calm and tell us: How many people need assistance and what is your exact location?';
 };
 
 const fallback = (text) => {

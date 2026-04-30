@@ -4,6 +4,69 @@ import DoneReport from './DoneReport';
 import { getProfile } from './emergencyProfiles';
 import { useHybridLocation } from '../hooks/useHybridLocation';
 
+// ── Robust TTS ─────────────────────────────────────────────
+// Loads voices once, queues utterances, never breaks autoplay
+const tts = (() => {
+  let voices = [];
+  let ready = false;
+  let queue = [];
+  let speaking = false;
+
+  const loadVoices = () => {
+    const v = window.speechSynthesis?.getVoices() || [];
+    if (v.length) { voices = v; ready = true; }
+  };
+
+  const pickVoice = () => {
+    return voices.find(v => /en.IN/i.test(v.lang) && /female|woman|zira|heera/i.test(v.name))
+      || voices.find(v => /en.IN/i.test(v.lang))
+      || voices.find(v => /IN/i.test(v.lang))
+      || voices.find(v => /en/i.test(v.lang))
+      || voices[0]
+      || null;
+  };
+
+  const flush = () => {
+    if (speaking || !queue.length) return;
+    const { text, onDone } = queue.shift();
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-IN';
+    u.rate = 0.92;
+    u.pitch = 1.05;
+    u.voice = pickVoice();
+    speaking = true;
+    u.onend = u.onerror = () => { speaking = false; onDone && onDone(); flush(); };
+    window.speechSynthesis.speak(u);
+    // Chrome bug: long utterances get cut at ~15s — resume trick
+    const resume = setInterval(() => {
+      if (!speaking) { clearInterval(resume); return; }
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    }, 5000);
+  };
+
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    loadVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+  }
+
+  return {
+    speak(text, onDone) {
+      if (!text || !window.speechSynthesis) { onDone && onDone(); return; }
+      window.speechSynthesis.cancel();
+      speaking = false;
+      queue = [{ text, onDone }];
+      if (!ready) loadVoices();
+      flush();
+    },
+    cancel() {
+      queue = [];
+      speaking = false;
+      window.speechSynthesis?.cancel();
+    }
+  };
+})();
+
 const API = 'http://localhost:3001';
 const STEP = { IDLE:0, LISTENING:1, ANALYZING:2, FOLLOWUP:3, DONE:4 };
 const C = {
@@ -50,7 +113,6 @@ export default function SOSPage() {
   const recRef   = useRef(null);
   const timerRef = useRef(null);
   const fileRef  = useRef(null);
-
   const stepRef = useRef(STEP.IDLE);
   useEffect(() => { stepRef.current = step; }, [step]);
 
@@ -84,41 +146,15 @@ export default function SOSPage() {
     else startMic();
   };
 
-  const speak = useCallback((t) => { 
+  const speak = useCallback((t) => {
     if (!t) return;
     stopMic(); // Pause mic so it doesn't record the AI's own voice
-    
     const resumeMic = () => {
       if (stepRef.current === STEP.IDLE || stepRef.current === STEP.FOLLOWUP) {
         startMic();
       }
     };
-
-    if (!window.speechSynthesis) { resumeMic(); return; }
-    
-    // Clear any stuck audio
-    window.speechSynthesis.cancel(); 
-    
-    const u = new SpeechSynthesisUtterance(t); 
-    u.lang = 'en-IN'; // Indian English/Hindi accent
-    u.rate = 0.95; 
-    
-    // Try to find the best available native voice
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      u.voice = voices.find(v => v.lang.includes('IN') && v.name.includes('Female')) 
-             || voices.find(v => v.lang.includes('IN')) 
-             || voices[0];
-    }
-    
-    u.onend = resumeMic;
-    u.onerror = (e) => {
-      console.warn("Speech synthesis error:", e);
-      resumeMic();
-    };
-    
-    // Force the browser to speak immediately
-    window.speechSynthesis.speak(u); 
+    tts.speak(t, resumeMic);
   }, []);
 
   const onFile = (e) => {
@@ -158,17 +194,25 @@ export default function SOSPage() {
     setStep(STEP.ANALYZING);
     try {
       const r = await fetch(`${API}/api/followup`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ transcript:text+' '+followup, location:realLocation }) });
-      const d = await r.json(); 
-      setTriage(d.triage); 
-      setDispatch(d.dispatch); 
-      if (d.dispatch?.incident) setIncidentId(d.dispatch.incident.id);
-      setStep(STEP.DONE); 
-      const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
-      speak(d.triage?.followUpQuestion || `Help aa rahi hai. Aap safe rahein. Please listen carefully: ${tips}`);
+      const d = await r.json();
+      setTriage(d.triage);
+      setDispatch(d.dispatch);
+      if (d.dispatch?.incident) {
+        const newId = d.dispatch.incident.id;
+        setIncidentId(newId);
+        setStep(STEP.DONE);
+        const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
+        speak(d.triage?.followUpQuestion || `Help aa rahi hai. Aap safe rahein. ${tips ? 'Please listen: ' + tips : ''}`);
+        setTimeout(() => navigate(`/track/${newId}`), 6000);
+      } else {
+        // Still not confident enough — stay on FOLLOWUP with new question
+        setStep(STEP.FOLLOWUP);
+        speak(d.triage?.followUpQuestion || 'Kya aap apni location ya paas ka landmark bata sakte hain?');
+      }
     } catch(err) { console.error(err); setStep(STEP.FOLLOWUP); }
-  }, [text, followup]);
+  }, [text, followup, realLocation]);
 
-  const reset = () => { setStep(STEP.IDLE); setText(''); setTriage(null); setDispatch(null); setBar(0); setFollowup(''); removeMedia(); window.speechSynthesis?.cancel(); };
+  const reset = () => { setStep(STEP.IDLE); setText(''); setTriage(null); setDispatch(null); setBar(0); setFollowup(''); removeMedia(); tts.cancel(); };
 
   const barCol   = bar>80 ? C.red : bar>55 ? C.red2 : 'C.red2';
   const hasInput = text.trim() || media;
