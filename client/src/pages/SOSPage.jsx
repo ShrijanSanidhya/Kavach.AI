@@ -6,80 +6,71 @@ import { useHybridLocation } from '../hooks/useHybridLocation';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-// ── Premium ElevenLabs TTS ─────────────────────────────────────────────
+// ── Native Browser TTS — 100% free, no API keys, works offline ──────────────
 const tts = (() => {
-  let queue = [];
-  let playing = false;
   let isCancelled = false;
-  const audio = typeof window !== 'undefined' ? new Audio() : null;
+  let utterance = null; // keep reference so GC doesn't kill it
 
-  const playNext = () => {
-    if (playing || queue.length === 0 || !audio) return;
-    const { text, onDone } = queue.shift();
-    
-    const playAudio = async () => {
-      if (isCancelled) return;
-      playing = true;
-      try {
-        const apiKey = 'sk_c74ede308ad2edb3135d2cc2c38cdd68b228cf69463c1d90';
-        const voiceId = 'EXAVITQu4vr4xnSDxMaL'; // Sarah
-        
-        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-          method: 'POST',
-          headers: {
-            'Accept': 'audio/mpeg',
-            'xi-api-key': apiKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            text: text,
-            model_id: 'eleven_multilingual_v2',
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-          })
-        });
+  const synth = () => typeof window !== 'undefined' ? window.speechSynthesis : null;
 
-        if (!res.ok) throw new Error('ElevenLabs API error');
-        
-        const blob = await res.blob();
-        if (isCancelled) return;
-        
-        const url = URL.createObjectURL(blob);
-        audio.src = url;
-        audio.onended = () => { URL.revokeObjectURL(url); playing = false; if(onDone) onDone(); playNext(); };
-        audio.onerror = (e) => { console.warn('Audio Error:', e); URL.revokeObjectURL(url); playing = false; if(onDone) onDone(); playNext(); };
-        
-        await audio.play();
-      } catch (err) {
-        console.error('ElevenLabs TTS Error:', err);
-        playing = false;
-        if (onDone) onDone();
-        playNext();
-      }
-    };
-    playAudio();
+  const getBestVoice = () => {
+    const voices = synth()?.getVoices() || [];
+    return (
+      voices.find(v => /Samantha/i.test(v.name)) ||        // Mac default (clear)
+      voices.find(v => /Google US English/i.test(v.name)) || // Chrome
+      voices.find(v => /en-IN/i.test(v.lang)) ||            // Indian accent
+      voices.find(v => /en/i.test(v.lang)) ||               // Any English
+      voices[0] || null
+    );
   };
 
   return {
     unlock() {
-      if (!audio) return;
-      audio.src = 'data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
-      audio.volume = 0;
-      audio.play().catch(()=>{});
-      setTimeout(() => { audio.volume = 1; }, 100);
+      const s = synth();
+      if (!s) return;
+      const u = new SpeechSynthesisUtterance('');
+      u.volume = 0;
+      s.speak(u);
     },
+
     speak(text, onDone) {
+      const s = synth();
+      if (!s) { if (onDone) onDone(); return; }
+
       this.cancel();
       isCancelled = false;
-      if (!text) { if(onDone) onDone(); return; }
-      const cleanText = text.replace(/[\u1000-\uFFFF]+/g, '');
-      queue = [{ text: cleanText, onDone }];
-      playNext();
+      if (!text?.trim()) { if (onDone) onDone(); return; }
+
+      const clean = text.replace(/[^\x00-\x7F]/g, ''); // strip non-ASCII/emoji
+
+      utterance = new SpeechSynthesisUtterance(clean);
+      utterance.lang  = 'en-IN';
+      utterance.rate  = 0.92;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      const voice = getBestVoice();
+      if (voice) utterance.voice = voice;
+
+      utterance.onend = () => { if (!isCancelled && onDone) onDone(); };
+      utterance.onerror = (e) => {
+        console.warn('TTS error:', e.error);
+        if (!isCancelled && onDone) onDone();
+      };
+
+      s.speak(utterance);
+
+      // Chrome desktop bug: pauses after ~15s unless we poke it
+      const keepAlive = setInterval(() => {
+        if (!s.speaking || isCancelled) { clearInterval(keepAlive); return; }
+        if (s.paused) s.resume();
+      }, 5000);
     },
+
     cancel() {
       isCancelled = true;
-      queue = [];
-      playing = false;
-      if (audio) { audio.pause(); audio.src = ''; }
+      utterance = null;
+      synth()?.cancel();
     }
   };
 })();
