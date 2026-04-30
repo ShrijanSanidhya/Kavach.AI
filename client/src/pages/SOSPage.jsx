@@ -4,113 +4,78 @@ import DoneReport from './DoneReport';
 import { getProfile } from './emergencyProfiles';
 import { useHybridLocation } from '../hooks/useHybridLocation';
 
-// ── Bulletproof Browser TTS ─────────────────────────────────────────────
-// Uses built-in voice. Fixes Safari/Mac silent failures and garbage collection bugs.
+// ── Bulletproof Audio Element TTS ─────────────────────────────────────────────
 const tts = (() => {
-  let voices = [];
-  let ready = false;
   let queue = [];
-  let speaking = false;
-  let currentUtterance = null; // Store reference to prevent garbage collection!
-  let unlocked = false;
+  let playing = false;
+  let isCancelled = false;
+  const audio = typeof window !== 'undefined' ? new Audio() : null;
 
-  const loadVoices = () => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    const v = window.speechSynthesis.getVoices();
-    if (v.length > 0) { voices = v; ready = true; }
-  };
-
-  const pickVoice = () => {
-    return voices.find(v => /en.IN/i.test(v.lang) && /female|woman|zira|heera|veena/i.test(v.name))
-      || voices.find(v => /en.IN/i.test(v.lang))
-      || voices.find(v => /Rishi/i.test(v.name)) // Mac Indian Voice
-      || voices.find(v => /Samantha/i.test(v.name)) // Mac Default
-      || voices.find(v => /en/i.test(v.lang))
-      || voices[0]
-      || null;
-  };
-
-  const flush = () => {
-    if (speaking || !queue.length || typeof window === 'undefined' || !window.speechSynthesis) return;
-    
+  const playNext = () => {
+    if (playing || queue.length === 0 || !audio) return;
     const { text, onDone } = queue.shift();
-    speaking = true;
-
-    // Small delay after cancel to prevent Safari/Chrome silent failure bug
-    window.speechSynthesis.cancel();
     
-    setTimeout(() => {
-      const u = new SpeechSynthesisUtterance(text);
-      currentUtterance = u; // Keep reference to prevent GC!
-      
-      u.lang = 'en-IN';
-      u.rate = 0.95;
-      u.pitch = 1.0;
-      
-      const voice = pickVoice();
-      if (voice) u.voice = voice;
-      
-      u.onend = () => { 
-        speaking = false; 
-        currentUtterance = null;
-        if (onDone) onDone(); 
-        flush(); 
-      };
-      
-      u.onerror = (e) => { 
-        console.warn('TTS Error:', e); 
-        speaking = false; 
-        currentUtterance = null;
-        if (onDone) onDone(); 
-        flush(); 
-      };
-      
-      window.speechSynthesis.speak(u);
-      
-      // Chrome bug: long utterances get cut at ~15s — resume trick
-      const resume = setInterval(() => {
-        if (!speaking) { clearInterval(resume); return; }
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-      }, 5000);
-      
-    }, 50); // 50ms delay after cancel is crucial for Mac/Safari
-  };
+    // STRICT CHUNKING to prevent Google TTS 404s (Max 200 chars)
+    const words = text.split(/\s+/);
+    const chunks = [];
+    let currentChunk = '';
+    
+    for (const w of words) {
+      if ((currentChunk + ' ' + w).length > 150) {
+        chunks.push(currentChunk.trim());
+        currentChunk = w;
+      } else {
+        currentChunk += (currentChunk ? ' ' : '') + w;
+      }
+    }
+    if (currentChunk) chunks.push(currentChunk.trim());
 
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    setTimeout(loadVoices, 100);
-    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
-  }
+    let idx = 0;
+
+    const playChunk = () => {
+      if (isCancelled) return;
+      if (idx >= chunks.length) {
+        playing = false;
+        if (onDone) onDone();
+        playNext();
+        return;
+      }
+      
+      let chunk = chunks[idx];
+      if (!chunk) { idx++; playChunk(); return; }
+
+      playing = true;
+      const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(chunk)}`;
+      
+      audio.src = url;
+      audio.onended = () => { idx++; playChunk(); };
+      audio.onerror = (e) => { console.warn('TTS Error:', e); idx++; playChunk(); };
+      audio.play().catch(e => { console.warn('Blocked:', e); idx++; playChunk(); });
+    };
+    playChunk();
+  };
 
   return {
     unlock() {
-      if (unlocked || typeof window === 'undefined' || !window.speechSynthesis) return;
-      const u = new SpeechSynthesisUtterance('');
-      u.volume = 0; // silent
-      window.speechSynthesis.speak(u);
-      unlocked = true;
+      if (!audio) return;
+      audio.src = 'data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq';
+      audio.volume = 0;
+      audio.play().catch(()=>{});
+      setTimeout(() => { audio.volume = 1; }, 100);
     },
     speak(text, onDone) {
-      if (!text || typeof window === 'undefined' || !window.speechSynthesis) { 
-        if (onDone) onDone(); 
-        return; 
-      }
-      
-      this.cancel(); // Clears queue and cancels
-      
-      // Clean up text for TTS (remove emojis so it doesn't try to read them out loud)
+      this.cancel();
+      isCancelled = false;
+      if (!text) { if(onDone) onDone(); return; }
       const cleanText = text.replace(/[\u1000-\uFFFF]+/g, '');
-      
       queue = [{ text: cleanText, onDone }];
-      if (!ready) loadVoices();
-      flush();
+      playNext();
     },
     cancel() {
+      isCancelled = true;
       queue = [];
-      speaking = false;
-      currentUtterance = null;
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-      }
+      playing = false;
+      if (audio) { audio.pause(); audio.src = ''; }
     }
   };
 })();
