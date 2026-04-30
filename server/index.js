@@ -97,18 +97,37 @@ app.post('/api/sos', async (req, res) => {
     const combinedTranscript = (transcript || 'Visual emergency report') + visualContext;
     const triage = await triageEmergency(combinedTranscript, location);
 
-    // 3. Adjust accuracy based on vision result (AI handles its own user_messages now)
+    // 3. Adjust accuracy based on vision result
     if (imageBase64 && imageFailed) {
-      triage.accuracy = Math.min(0.70, triage.accuracy); // lower accuracy
+      triage.accuracy = Math.min(0.70, triage.accuracy);
     } else if (imageBase64 && !imageFailed) {
       triage.accuracy = Math.min(0.97, triage.accuracy + 0.10);
     } else if (hasVideo) {
       triage.accuracy = Math.min(0.97, triage.accuracy + 0.10);
     }
 
+    // 4. ALWAYS use real GPS from client if provided — never trust LLM-invented coords
+    if (location?.lat && location?.lng) {
+      triage.location = [location.lat, location.lng];
+      triage.locationName = `GPS (±${Math.round(location.accuracy || 50)}m)`;
+    }
+
+    // 5. Force follow-up if transcript lacks BOTH location AND headcount
+    const hasLocation = /\b(at|near|in|on|beside|behind|opposite|sector|block|road|street|building|floor|flat|house|village|town|area|colony|nagar|chowk|bazar|market|station|hospital|school|mall|bridge|gate|junction)\b/i.test(transcript || '');
+    const hasHeadcount = /\b(\d+\s*(people|persons|log|floor|member|family|child|man|woman|kid|student|passenger|worker)|many|several|multiple|everyone|all of us|few)\b/i.test(transcript || '');
+
+    if (!hasLocation || !hasHeadcount) {
+      triage.fallback_triggered = true;
+      triage.accuracy = Math.min(triage.accuracy, 0.75); // keep below dispatch threshold
+      const missing = [];
+      if (!hasLocation) missing.push('your exact location or a nearby landmark');
+      if (!hasHeadcount) missing.push('how many people are affected');
+      triage.followUpQuestion = `Help is being dispatched. To reach you faster, please tell us: ${missing.join(', and ')}.`;
+    }
+
     addLog('TRIAGE', `✓ ${triage.emergencyType} | Sev: ${triage.severity} | Acc: ${Math.round(triage.accuracy * 100)}%`);
 
-    if (triage.accuracy >= 0.85) {
+    if (!triage.fallback_triggered && triage.accuracy >= 0.85) {
       const dispatch = processDispatch(triage, transcript || 'Visual report', triage.location);
       const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       store.stats.aiResponseTime = `${elapsed}s`;
