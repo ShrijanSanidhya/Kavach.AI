@@ -122,16 +122,12 @@ export default function SOSPage() {
   const stepRef = useRef(STEP.IDLE);
   useEffect(() => { stepRef.current = step; }, [step]);
 
+  // Pre-load voices as soon as the component mounts
   useEffect(() => {
-    const handleUnlock = () => tts.unlock();
-    document.addEventListener('click', handleUnlock, { once: true });
-    document.addEventListener('touchstart', handleUnlock, { once: true });
-    document.addEventListener('keydown', handleUnlock, { once: true });
-    return () => {
-      document.removeEventListener('click', handleUnlock);
-      document.removeEventListener('touchstart', handleUnlock);
-      document.removeEventListener('keydown', handleUnlock);
-    };
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.getVoices(); // trigger voice list load
+      window.speechSynthesis.addEventListener('voiceschanged', () => window.speechSynthesis.getVoices());
+    }
   }, []);
 
   useEffect(() => {
@@ -173,6 +169,9 @@ export default function SOSPage() {
       }
       if (onDone) onDone();
     };
+    // Unlock IMMEDIATELY before speaking — this is called from within a user
+    // interaction context (button press chain), so the browser MUST allow it.
+    tts.unlock();
     tts.speak(t, resumeMic);
   }, []);
 
