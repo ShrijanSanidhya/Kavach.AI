@@ -1,196 +1,313 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, CircleMarker, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useHybridLocation } from '../hooks/useHybridLocation';
 
-const C = {
-  bg: '#0a0a0a', bg1: '#141414', bg2: '#1a1a1a', border: '#222',
-  red: '#ff2d2d', green: '#00ff88', cyan: '#00d2ff',
-  text: '#f5f5f5', muted: '#888'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+// ── Domain config ─────────────────────────────────────────────────────────
+const DOMAINS = {
+  fire:     { emoji:'🔥', color:'#ef4444', label:'FIRE EMERGENCY',    unit:'🚒', tip:'Stay low, cover mouth, move away from building.' },
+  medical:  { emoji:'🚑', color:'#22c55e', label:'MEDICAL EMERGENCY', unit:'🏥', tip:'Keep patient still, clear airway, stay on the line.' },
+  accident: { emoji:'🚑', color:'#22c55e', label:'ACCIDENT',          unit:'🏥', tip:'Do not move injured persons, keep them warm and still.' },
+  hazmat:   { emoji:'☣️', color:'#eab308', label:'HAZMAT INCIDENT',   unit:'🧪', tip:'Move upwind, do not touch chemicals, cover nose.' },
+  flood:    { emoji:'🌊', color:'#3b82f6', label:'FLOOD DISASTER',    unit:'🚁', tip:'Move to high ground immediately, avoid flowing water.' },
+  disaster: { emoji:'🏚', color:'#f97316', label:'DISASTER RESPONSE', unit:'🚁', tip:'Stay away from unstable structures. Signal rescuers.' },
+  swat:     { emoji:'🛡️', color:'#a855f7', label:'SECURITY THREAT',   unit:'🚔', tip:'Stay inside, away from windows. Follow police orders.' },
+  crime:    { emoji:'🚔', color:'#6366f1', label:'CRIME RESPONSE',    unit:'🚓', tip:'Move to safety, do not confront. Stay on the line.' },
+  default:  { emoji:'🚨', color:'#c62828', label:'EMERGENCY',         unit:'🚨', tip:'Follow dispatcher instructions. Help is on the way.' },
 };
+
+function getDomain(type = '', resource = '') {
+  const t = (type + ' ' + resource).toLowerCase();
+  if (/fire|explo/.test(t)) return DOMAINS.fire;
+  if (/medic|ambul|cpr|cardiac|accident/.test(t)) return DOMAINS.medical;
+  if (/hazmat|chemical|gas|toxic/.test(t)) return DOMAINS.hazmat;
+  if (/flood|ndrf|disaster|quake|collapse/.test(t)) return DOMAINS.disaster;
+  if (/swat|terror|bomb|hostage/.test(t)) return DOMAINS.swat;
+  if (/crime|police/.test(t)) return DOMAINS.crime;
+  return DOMAINS.default;
+}
+
+// ── Map helpers ───────────────────────────────────────────────────────────
+function MapFly({ center }) {
+  const map = useMap();
+  useEffect(() => { if (center) map.flyTo(center, 16, { duration: 1.5 }); }, [center]);
+  return null;
+}
+
+function makePin(color, emoji) {
+  return L.divIcon({
+    html: `<div style="
+      width:40px;height:40px;border-radius:50%;
+      background:${color}22;border:2.5px solid ${color};
+      display:flex;align-items:center;justify-content:center;font-size:20px;
+      box-shadow:0 0 20px ${color}99;animation:livePulse 2s ease-in-out infinite;
+    ">${emoji}</div>`,
+    className: '', iconSize: [40, 40], iconAnchor: [20, 20],
+  });
+}
+
+// ── Format helpers ────────────────────────────────────────────────────────
+const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 export default function LiveMission() {
   const { incidentId } = useParams();
-  const [progress, setProgress] = useState(0);
   const [incident, setIncident] = useState(null);
-  const [seconds, setSeconds] = useState(480); // 8 minutes in seconds
+  const [secs, setSecs] = useState(480);
+  const [progress, setProgress] = useState(0);
+  const [tab, setTab] = useState('status'); // 'status' | 'map'
+  const esRef = useRef(null);
+  const loc = useHybridLocation();
+  const userLoc = loc ? [loc.lat, loc.lng] : null;
 
+  // SSE + REST fallback
   useEffect(() => {
-    const fetchState = async () => {
-      try {
-        const r = await fetch(`${API}/api/state-snapshot`);
-        const data = await r.json();
-        const found = data.incidents.find(i => i.id === incidentId);
-        if (found) {
-          setIncident(found);
-          if (found.etaMinutes) setSeconds(found.etaMinutes * 60);
-        }
-      } catch (e) { console.error(e); }
+    const apply = (data) => {
+      const found = data.incidents?.find(i => i.id === incidentId || i.seqId == incidentId);
+      if (found) {
+        setIncident(found);
+        setSecs(prev => prev === 480 && found.etaMinutes ? found.etaMinutes * 60 : prev);
+      }
     };
-    fetchState();
+    fetch(`${API}/api/state-snapshot`).then(r => r.json()).then(apply).catch(() => {});
+    const es = new EventSource(`${API}/api/state`);
+    es.onmessage = e => { try { apply(JSON.parse(e.data)); } catch {} };
+    es.onerror = () => es.close();
+    esRef.current = es;
+    return () => es.close();
   }, [incidentId]);
 
   useEffect(() => {
     const id = setInterval(() => {
-      setSeconds(s => Math.max(0, s - 1));
-      setProgress(p => Math.min(100, p + (100 / 480))); // Smooth progress based on total time
+      setSecs(s => Math.max(0, s - 1));
+      setProgress(p => Math.min(98, p + 100 / 480));
     }, 1000);
     return () => clearInterval(id);
   }, []);
 
-  const getVehicle = () => {
-    const type = incident?.emergencyType?.toLowerCase() || '';
-    const res = incident?.assignedResource?.toLowerCase() || '';
-    
-    if (type.includes('fire') || res.includes('fire')) return "🚒";
-    if (type.includes('police') || res.includes('crime') || res.includes('threat') || res.includes('swat') || res.includes('tactical')) return "🚓";
-    if (type.includes('disaster') || type.includes('flood') || res.includes('ndrf')) return "🚁";
-    if (type.includes('gas') || type.includes('chem') || res.includes('hazmat')) return "🚛";
-    
-    return "🚑"; // Default to Ambulance for medical/unknown
-  };
-
-  const formatTime = (s) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
+  const d = getDomain(incident?.emergencyType, incident?.resourceNeeded);
+  const incLoc = incident?.location;
+  const mapCenter = incLoc || userLoc || [28.98, 77.05];
+  const totalSecs = (incident?.etaMinutes || 8) * 60;
+  const arrival = fmt(secs);
+  const C = { bg: '#0d0d0d', bg1: '#161616', bg2: '#1e1e1e', border: '#272727', text: '#f1f1f1', muted: '#6b7280' };
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'Inter, sans-serif', padding: '40px 20px' }}>
-      
-      {/* HEADER */}
-      <nav style={{ width: '100%', maxWidth: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 60 }}>
+    <div style={{ height: '100vh', background: C.bg, color: C.text, display: 'flex', flexDirection: 'column', fontFamily: "'Inter', sans-serif", overflow: 'hidden' }}>
+
+      {/* ── TOPBAR ── */}
+      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: `1px solid ${C.border}`, background: C.bg1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, boxShadow: `0 0 10px ${d.color}`, animation: 'liveDot 1.2s infinite' }} />
+          <span style={{ fontWeight: 900, fontSize: 13, letterSpacing: '0.14em' }}>KAVACH</span>
+          <span style={{ color: C.muted, fontSize: 11 }}>/ LIVE MISSION</span>
+          <span style={{ background: `${d.color}18`, border: `1px solid ${d.color}44`, borderRadius: 20, padding: '2px 12px', fontSize: 11, fontWeight: 700, color: d.color }}>
+            {d.emoji} {d.label}
+          </span>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 8, height: 8, background: C.red, borderRadius: '50%', animation: 'pulse 1.5s infinite' }} />
-          <span style={{ fontWeight: 800, letterSpacing: '0.1em', fontSize: 13 }}>KAVACH LIVE</span>
-        </div>
-        <Link to="/command" style={{ color: C.muted, fontSize: 12, textDecoration: 'none', border: `1px solid ${C.border}`, padding: '6px 16px', borderRadius: 20 }}>Command Center →</Link>
-      </nav>
-
-      {/* ANIMATION BOX */}
-      <div style={{ width: '100%', maxWidth: 800, background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 24, padding: '40px 30px', marginBottom: 30, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: 15, left: 20, fontSize: 10, fontWeight: 800, color: C.muted, letterSpacing: '0.2em' }}>LIVE TRACKING FEED</div>
-        
-        <div style={{ textAlign: 'center', marginBottom: 40, marginTop: 10 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>HELP IS ARRIVING</h1>
-          <p style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>Estimated reach: <span style={{ color: C.red, fontWeight: 700 }}>{incident?.locationName || 'Your Location'}</span></p>
-          
-          <div style={{ marginTop: 20, display: 'inline-block', background: 'rgba(255,45,45,0.1)', border: `1px solid ${C.red}33`, padding: '8px 24px', borderRadius: 12 }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: C.muted, letterSpacing: '0.15em', marginRight: 10 }}>T-MINUS</span>
-            <span style={{ fontSize: 28, fontWeight: 900, color: C.red, fontFamily: 'monospace', textShadow: `0 0 10px ${C.red}44` }}>
-              {formatTime(seconds)}
-            </span>
+          {/* Mobile toggle */}
+          <div style={{ display: 'flex', background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 8, padding: 2 }}>
+            {[['status', '📋 Status'], ['map', '🗺 Map']].map(([v, lbl]) => (
+              <button key={v} onClick={() => setTab(v)} style={{
+                padding: '5px 12px', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                background: tab === v ? d.color : 'transparent', color: tab === v ? '#fff' : C.muted, transition: 'all 0.2s',
+              }}>{lbl}</button>
+            ))}
           </div>
-        </div>
-        
-        <div style={{ position: 'relative', height: 100, display: 'flex', alignItems: 'center', padding: '0 40px' }}>
-          {/* TRACK */}
-          <div style={{ position: 'absolute', width: 'calc(100% - 80px)', height: 4, background: '#1a1a1a', borderRadius: 2, top: '50%', transform: 'translateY(-50%)' }} />
-          <div style={{ position: 'absolute', width: `${(progress / 100) * (100 - 15)}%`, height: 4, background: `linear-gradient(90deg, transparent, ${C.red})`, top: '50%', transform: 'translateY(-50%)', transition: 'width 0.5s linear', borderRadius: 2 }} />
-          
-          {/* VEHICLE */}
-          <div style={{ position: 'absolute', left: `${progress}%`, transform: 'translateX(-50%)', transition: 'left 0.5s linear', zIndex: 10 }}>
-            <div style={{ fontSize: 54, filter: 'drop-shadow(0 0 15px rgba(255,45,45,0.5))', transform: 'scaleX(-1)' }}>{getVehicle()}</div>
-            <div style={{ background: C.red, color: '#fff', fontSize: 8, fontWeight: 900, padding: '2px 6px', borderRadius: 4, marginTop: 5, letterSpacing: '0.1em' }}>LIVE</div>
-          </div>
-
-          {/* DESTINATION */}
-          <div style={{ position: 'absolute', right: 40, transform: 'translateY(-50%)', top: '50%' }}>
-            <div style={{ fontSize: 40, animation: 'bounce 2s infinite' }}>📍</div>
-          </div>
+          <Link to="/command" style={{ color: C.muted, fontSize: 11, textDecoration: 'none', border: `1px solid ${C.border}`, padding: '5px 12px', borderRadius: 6 }}>Command →</Link>
         </div>
       </div>
 
-      {/* DETAILED INFO CARDS */}
-      <div style={{ width: '100%', maxWidth: 800, display: 'flex', flexDirection: 'column', gap: 20 }}>
-        
-        {/* BIG CARD: WHAT'S DISPATCHED */}
-        <div style={{ background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, letterSpacing: '0.2em', marginBottom: 15 }}>MISSION DISPATCH DETAILS</div>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 8px 0' }}>{incident?.assignedResource || 'EMERGENCY UNIT'}</h2>
-            <p style={{ fontSize: 15, color: '#aaa', margin: 0, lineHeight: 1.6 }}>
-              Primary unit <span style={{ color: '#fff', fontWeight: 600 }}>{incident?.assignedResource}</span> is en route. 
-              {incident?.emergencyType?.toLowerCase().includes('fire') && " Support ambulance is on standby."}
-            </p>
+      {/* ── HERO STRIP ── */}
+      <div style={{ flexShrink: 0, padding: '10px 20px', background: `linear-gradient(90deg, ${d.color}0a, transparent)`, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 24 }}>
+        {/* Vehicle track */}
+        <div style={{ flex: 1, position: 'relative', height: 48, display: 'flex', alignItems: 'center' }}>
+          <div style={{ position: 'absolute', width: '100%', height: 3, background: C.bg2, borderRadius: 2 }} />
+          <div style={{ position: 'absolute', width: `${Math.min(95, progress)}%`, height: 3, background: `linear-gradient(90deg, transparent, ${d.color})`, borderRadius: 2, transition: 'width 1s linear' }} />
+          <div style={{ position: 'absolute', left: `${Math.min(93, progress)}%`, transition: 'left 1s linear', transform: 'translateX(-50%)' }}>
+            <span style={{ fontSize: 30, filter: `drop-shadow(0 0 10px ${d.color})`, display: 'block', transform: 'scaleX(-1)' }}>{d.unit}</span>
           </div>
-          <div style={{ fontSize: 60, opacity: 0.2 }}>{getVehicle()}</div>
+          <div style={{ position: 'absolute', right: 0, fontSize: 24, animation: 'bounce 2s ease-in-out infinite' }}>📍</div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 20 }}>
-          {/* WHAT'S GOING ON CARD */}
-          <div style={{ background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, letterSpacing: '0.2em', marginBottom: 20 }}>WHAT'S GOING ON</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ width: 6, height: 6, background: C.green, borderRadius: '50%' }} />
-                <div style={{ fontSize: 14, color: '#eee' }}>Traffic signals cleared for priority passage</div>
-              </div>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ width: 6, height: 6, background: C.green, borderRadius: '50%' }} />
-                <div style={{ fontSize: 14, color: '#eee' }}>Nearest medical facilities on high alert</div>
-              </div>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ width: 6, height: 6, background: C.cyan, borderRadius: '50%' }} />
-                <div style={{ fontSize: 14, color: '#eee' }}>Real-time GPS tracking link established</div>
-              </div>
-            </div>
+        {/* ETA + unit */}
+        <div style={{ flexShrink: 0, textAlign: 'right' }}>
+          <div style={{ fontSize: 9, color: C.muted, letterSpacing: '0.16em', fontWeight: 700 }}>T-MINUS</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color: d.color, fontFamily: 'monospace', lineHeight: 1, textShadow: `0 0 20px ${d.color}66` }}>{arrival}</div>
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>{incident?.assignedResource || 'Dispatching…'}</div>
+        </div>
+      </div>
+
+      {/* ── MAIN BODY ── */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 360px', minHeight: 0, overflow: 'hidden' }}>
+
+        {/* LEFT — full MAP always visible on desktop */}
+        <div style={{ position: 'relative', overflow: 'hidden', display: tab === 'map' ? 'block' : undefined }}>
+          <MapContainer center={mapCenter} zoom={15} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="CARTO" />
+            {incLoc && <MapFly center={incLoc} />}
+            {incLoc && (
+              <>
+                <Marker position={incLoc} icon={makePin(d.color, d.emoji)} />
+                <CircleMarker center={incLoc} radius={50} pathOptions={{ color: d.color, fillColor: d.color, fillOpacity: 0.04, weight: 1, dashArray: '6 6' }} />
+              </>
+            )}
+            {userLoc && (
+              <>
+                <Marker position={userLoc} icon={makePin('#3b82f6', '🔵')} />
+                <CircleMarker center={userLoc} radius={Math.min(40, (loc?.accuracy || 50) / 2)} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.06, weight: 1 }} />
+              </>
+            )}
+          </MapContainer>
+
+          {/* Map badges */}
+          <div style={{ position: 'absolute', top: 12, left: 12, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {incLoc && <Badge color={d.color}>{d.emoji} INCIDENT</Badge>}
+            {userLoc && <Badge color="#3b82f6">🔵 YOU · ±{Math.round(loc?.accuracy || 0)}m</Badge>}
           </div>
 
-          {/* RESPONDER VITALS CARD */}
-          <div style={{ background: C.bg1, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, letterSpacing: '0.2em', marginBottom: 20 }}>RESPONDER TELEMETRY</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-              <div>
-                <div style={{ fontSize: 10, color: C.muted, marginBottom: 5 }}>UNIT SPEED</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{Math.floor(65 + Math.random() * 15)} KM/H</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: C.muted, marginBottom: 5 }}>FUEL LEVEL</div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: C.green }}>82%</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: C.muted, marginBottom: 5 }}>CREW SIZE</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>4 MEMBERS</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: C.muted, marginBottom: 5 }}>EQUIPMENT</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>READY</div>
-              </div>
-            </div>
+          {/* Progress bar overlay */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: C.bg2, zIndex: 1000 }}>
+            <div style={{ height: '100%', width: `${progress}%`, background: d.color, transition: 'width 1s linear' }} />
           </div>
         </div>
 
-        {/* BOTTOM ROW: SAFETY AND TIMER */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
-           {/* SAFETY PROTOCOLS */}
-           <div style={{ background: 'rgba(255,45,45,0.03)', border: `1px solid ${C.red}22`, borderRadius: 24, padding: 32 }}>
-              <div style={{ fontSize: 11, color: C.red, fontWeight: 800, letterSpacing: '0.2em', marginBottom: 15 }}>IMMEDIATE SAFETY ADVISORY</div>
-              <div style={{ fontSize: 14, color: '#aaa', lineHeight: 1.6 }}>
-                • Maintain clear access for the {incident?.assignedResource}.<br/>
-                • Do not attempt to move the injured party (if applicable).<br/>
-                • Ensure your mobile is audible for AI Dispatcher calls.
-              </div>
-           </div>
+        {/* RIGHT — STATUS PANEL */}
+        <div style={{ background: C.bg1, borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-           {/* ARRIVAL STATS (BOTTOM RIGHT) */}
-           <div style={{ background: 'linear-gradient(145deg, #1e1e1e, #0a0a0a)', border: `1px solid ${C.red}44`, borderRadius: 24, padding: 32, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: C.muted, fontWeight: 800, letterSpacing: '0.2em', marginBottom: 10 }}>ESTIMATED ARRIVAL</div>
-            <div style={{ fontSize: 56, fontWeight: 900, color: C.red, letterSpacing: '-0.05em', fontFamily: 'monospace' }}>
-              {formatTime(seconds)}
+          {/* Incident identity */}
+          <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, background: `${d.color}08` }}>
+            <div style={{ fontSize: 9, color: C.muted, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 4 }}>INCIDENT ID</div>
+            <div style={{ fontSize: 10, fontFamily: 'monospace', color: C.muted, marginBottom: 10 }}>{incident?.id || incidentId}</div>
+            <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 3 }}>{d.emoji} {incident?.emergencyType?.toUpperCase() || '—'}</div>
+            <div style={{ fontSize: 12, color: C.muted }}>📍 {incident?.locationName || 'Locating…'}</div>
+          </div>
+
+          {/* Scrollable info */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            {/* Status timeline */}
+            <Section title="MISSION STATUS" color={d.color}>
+              {[
+                { label: 'SOS Received & Verified', done: true, icon: '✓' },
+                { label: 'AI Triage Complete', done: !!incident, icon: '✓' },
+                { label: `${d.unit} ${incident?.assignedResource || 'Unit'} Dispatched`, done: !!incident?.assignedResource, icon: '✓' },
+                { label: 'Help Arriving', done: secs <= 60, icon: secs <= 60 ? '✓' : '…', live: true },
+              ].map((s, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                    border: `2px solid ${s.done ? d.color : C.border}`,
+                    background: s.done ? d.color : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff',
+                  }}>{s.icon}</div>
+                  <span style={{ fontSize: 13, color: s.done ? C.text : C.muted, flex: 1 }}>{s.label}</span>
+                  {s.live && s.done && <span style={{ fontSize: 9, color: d.color, fontWeight: 700, animation: 'liveDot 1s infinite' }}>LIVE</span>}
+                </div>
+              ))}
+            </Section>
+
+            {/* Dispatch card */}
+            <div style={{ background: `${d.color}10`, border: `1px solid ${d.color}33`, borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ fontSize: 9, color: d.color, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 8 }}>UNIT DISPATCHED</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 36 }}>{d.unit}</span>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800 }}>{incident?.assignedResource || 'Emergency Unit'}</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>ETA: <strong style={{ color: d.color }}>{fmt(secs)}</strong></div>
+                  <div style={{ fontSize: 11, color: C.muted }}>Severity: <strong style={{ color: d.color }}>{incident?.severity || '—'}</strong></div>
+                </div>
+              </div>
+              {/* Progress bar */}
+              <div style={{ marginTop: 12, height: 4, background: C.bg2, borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, (1 - secs / totalSecs) * 100)}%`, background: d.color, transition: 'width 1s linear', borderRadius: 2 }} />
+              </div>
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginTop: 5 }}>LIVE COUNTDOWN</div>
-            <div style={{ marginTop: 20, height: 4, background: '#1a1a1a', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ width: `${progress}%`, height: '100%', background: C.red, transition: 'width 1s linear' }} />
+
+            {/* AI telemetry */}
+            <Section title="LIVE TELEMETRY" color={d.color}>
+              {[
+                ['Speed', `${65 + Math.floor(progress / 10)} km/h`],
+                ['Crew', '4 personnel'],
+                ['Equipment', 'Ready'],
+                ['Signal', 'Strong'],
+              ].map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
+                  <span style={{ color: C.muted }}>{k}</span>
+                  <span style={{ fontWeight: 700 }}>{v}</span>
+                </div>
+              ))}
+            </Section>
+
+            {/* Safety advisory */}
+            <div style={{ background: 'rgba(255,80,80,0.06)', border: '1px solid rgba(255,80,80,0.2)', borderRadius: 12, padding: '14px 16px' }}>
+              <div style={{ fontSize: 9, color: '#ef4444', letterSpacing: '0.14em', fontWeight: 700, marginBottom: 8 }}>⚠ SAFETY ADVISORY</div>
+              <div style={{ fontSize: 13, color: '#ccc', lineHeight: 1.7 }}>
+                • {d.tip}<br />
+                • Keep your phone audible for dispatcher calls.<br />
+                • Clear a path for the response unit.
+              </div>
             </div>
+
+            {/* Location info */}
+            {(incLoc || userLoc) && (
+              <Section title="LOCATION" color={d.color}>
+                {incLoc && <InfoRow label="Incident" value={`${incLoc[0].toFixed(5)}, ${incLoc[1].toFixed(5)}`} />}
+                {userLoc && <InfoRow label="You (GPS)" value={`±${Math.round(loc?.accuracy || 0)}m accuracy`} />}
+              </Section>
+            )}
+          </div>
+
+          {/* Bottom action */}
+          <div style={{ padding: '12px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 10 }}>
+            <Link to="/" style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8, background: C.bg2, border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>← Home</Link>
+            <Link to="/command" style={{ flex: 1, textAlign: 'center', padding: '10px', borderRadius: 8, background: d.color, border: 'none', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>Command →</Link>
           </div>
         </div>
-
       </div>
 
       <style>{`
-        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } 100% { opacity: 1; transform: scale(1); } }
-        @keyframes bounce { 0%, 100% { transform: translateY(-50%); } 50% { transform: translateY(-70%); } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        @keyframes liveDot  { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes livePulse{ 0%,100%{box-shadow:0 0 10px currentColor} 50%{box-shadow:0 0 24px currentColor} }
+        @keyframes bounce   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        .leaflet-container { background:#0d0d0d !important; }
+        .leaflet-control-zoom { display:none; }
+        .leaflet-popup-content-wrapper { background:#1a1a1a;color:#f1f1f1;border:1px solid #333 }
+        .leaflet-popup-tip { background:#1a1a1a }
+        ::-webkit-scrollbar { width:4px } ::-webkit-scrollbar-track { background:transparent } ::-webkit-scrollbar-thumb { background:#333;border-radius:2px }
+        @media (max-width:700px) { .desktop-map { display:none!important } }
       `}</style>
+    </div>
+  );
+}
+
+// ── Tiny helper components ─────────────────────────────────────────────────
+function Badge({ color, children }) {
+  return (
+    <div style={{ background: 'rgba(13,13,13,0.88)', border: `1px solid ${color}44`, borderRadius: 6, padding: '4px 12px', fontSize: 10, color, fontWeight: 700, backdropFilter: 'blur(8px)', display: 'inline-block' }}>
+      {children}
+    </div>
+  );
+}
+
+function Section({ title, color, children }) {
+  return (
+    <div style={{ background: '#1a1a1a', border: '1px solid #272727', borderRadius: 12, padding: '14px 16px' }}>
+      <div style={{ fontSize: 9, color, letterSpacing: '0.14em', fontWeight: 700, marginBottom: 10 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6, color: '#9ca3af' }}>
+      <span>{label}</span><span style={{ color: '#f1f1f1', fontWeight: 600 }}>{value}</span>
     </div>
   );
 }
