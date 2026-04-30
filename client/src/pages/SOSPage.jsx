@@ -123,7 +123,8 @@ export default function SOSPage() {
         setDispatch(d.dispatch);
         setIncidentId(d.dispatch.incident.id);
         setStep(STEP.DONE);
-        speak('Aap safe jagah pe rahein. Help pahunch rahi hai.');
+        const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
+        speak(`Aap safe jagah pe rahein. Help pahunch rahi hai. Please listen carefully: ${tips}`);
         setTimeout(() => navigate(`/track/${d.dispatch.incident.id}`), 6000);
       } else { setStep(STEP.FOLLOWUP); if(d.triage?.followUpQuestion) speak(d.triage.followUpQuestion); }
     } catch(err) { clearInterval(timerRef.current); console.error(err); setStep(STEP.IDLE); }
@@ -134,7 +135,9 @@ export default function SOSPage() {
     setStep(STEP.ANALYZING);
     try {
       const r = await fetch(`${API}/api/followup`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ transcript:text+' '+followup }) });
-      const d = await r.json(); setTriage(d.triage); setDispatch(d.dispatch); setStep(STEP.DONE); speak('Help aa rahi hai. Aap safe rahein.');
+      const d = await r.json(); setTriage(d.triage); setDispatch(d.dispatch); setStep(STEP.DONE); 
+      const tips = getProfile(d.triage?.emergencyType, d.triage?.resourceNeeded)?.tips?.join('. ') || '';
+      speak(`Help aa rahi hai. Aap safe rahein. Please listen carefully: ${tips}`);
     } catch(err) { console.error(err); setStep(STEP.FOLLOWUP); }
   }, [text, followup]);
 

@@ -131,8 +131,11 @@ export default function DoneReport({ profile, inc, dispatch, triage, onReset }) 
 
           {/* Safety Instructions */}
           <div style={{ background: '#0a0a0a', border: `1px solid ${a}44`, borderLeft: `4px solid ${a}`, borderRadius: 8, padding: 24 }}>
-            <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.15em', fontWeight: 700, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: '#fff', letterSpacing: '0.15em', fontWeight: 700, marginBottom: 8 }}>
               IMMEDIATE SAFETY ADVISORY
+            </div>
+            <div style={{ fontSize: 11, color: '#aaa', fontStyle: 'italic', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 14 }}>🔊</span> 
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {profile.tips.map((tip, i) => (

@@ -2,9 +2,9 @@
 export const store = {
   incidents: [],
   resources: {
-    ambulances:  { total: 3, available: 3 },
-    fireUnits:   { total: 2, available: 2 },
-    police:      { total: 3, available: 3 },
+    ambulances:  { total: 4, available: 4 },
+    fireUnits:   { total: 3, available: 3 },
+    police:      { total: 4, available: 4 },
     ndrfUnits:   { total: 2, available: 2 },
     swatUnits:   { total: 1, available: 1 },
     hazmatUnits: { total: 1, available: 1 },
@@ -22,6 +22,9 @@ export const store = {
     { id: 'NDRF-2', type: 'ndrf',    status: 'available', zone: 'South',    eta: null, location: [28.520, 77.220] },
     { id: 'SWAT-1', type: 'swat',    status: 'available', zone: 'Central',  eta: null, location: [28.625, 77.215] },
     { id: 'HAZ-1',  type: 'hazmat',  status: 'available', zone: 'West',     eta: null, location: [28.650, 77.100] },
+    { id: 'AMB-HR', type: 'ambulance', status: 'available', zone: 'Haryana', eta: null, location: [28.975, 77.045] },
+    { id: 'FIRE-HR',type: 'fire',      status: 'available', zone: 'Haryana', eta: null, location: [28.982, 77.051] },
+    { id: 'POL-HR', type: 'police',    status: 'available', zone: 'Haryana', eta: null, location: [28.985, 77.048] },
   ],
   logs: [],
   stats: {

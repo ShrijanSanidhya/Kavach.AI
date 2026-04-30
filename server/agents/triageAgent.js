@@ -88,13 +88,15 @@ const fallback = (text) => {
               : /dwarka/i.test(t) ? 'Dwarka'
               : 'X3MR+42 Kishora, Haryana';
 
+  const followupQ = (isFire || isLandslide) ? 'Exact address kya hai? Aur kitne log phanse hai?' : 'Exact address kya hai?';
+
   return {
     emergencyType: type,
     severity: sev,
     locationName: loc,
     keywords: [sev, type.toUpperCase(), hasScale ? 'MASS-CASUALTY' : 'DISTRESS'],
     accuracy: Number(accuracy.toFixed(2)),
-    followUpQuestion: accuracy < 0.85 ? 'Exact address kya hai? Aur kitne log phanse hai?' : null,
+    followUpQuestion: accuracy < 0.85 ? followupQ : null,
     reasoning: `${type} emergency detected via keyword analysis. Confidence boosted by ${hasLocation ? 'location' : 'context'} signals. Simulated response (no API key).`,
     resourceNeeded: res,
   };
