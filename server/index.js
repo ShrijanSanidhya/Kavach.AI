@@ -174,9 +174,10 @@ app.get('/api/speak', async (req, res) => {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KAVACH/1.0)' }
     });
     if (!r.ok) throw new Error(`TTS upstream ${r.status}`);
+    const buf = await r.arrayBuffer();
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    r.body.pipe(res);
+    res.send(Buffer.from(buf));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
